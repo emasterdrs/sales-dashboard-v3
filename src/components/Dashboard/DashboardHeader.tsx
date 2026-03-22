@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, TrendingUp, Info } from 'lucide-react';
+import { TrendingUp, Info } from 'lucide-react';
 import styles from './DashboardHeader.module.css';
 
 interface DashboardHeaderProps {

@@ -63,7 +63,7 @@ const DrillDownTable: React.FC<DrillDownTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {data.map((row, idx) => (
+            {data.map((row) => (
               <React.Fragment key={row.id}>
                 <tr className={styles.row} onClick={() => onRowClick(row.id, row.name)}>
                   {columns.map(col => (

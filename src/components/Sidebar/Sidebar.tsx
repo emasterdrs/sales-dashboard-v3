@@ -8,7 +8,6 @@ import {
   Settings, 
   MessageSquare,
   Users,
-  ChevronRight,
   TrendingDown,
   LayoutDashboard
 } from 'lucide-react';

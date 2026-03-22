@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DashboardHeader from '../../components/Dashboard/DashboardHeader';
 import SummaryGrid from '../../components/Dashboard/SummaryGrid';
 import DrillDownTable from '../../components/Dashboard/DrillDownTable';
@@ -37,7 +37,20 @@ const DashboardPage: React.FC = () => {
     { id: 'client2', name: 'LG 이노텍', goal: '1.5', performance: '1.2', achieve: '80.0', gap: '+0.3' },
   ];
 
-  const [displayData, setDisplayData] = useState(mockTeamData);
+  interface DashboardData {
+    id: string;
+    name: string;
+    goal: string;
+    performance: string;
+    achieve: string;
+    gap: string;
+    expectedGoal?: string;
+    expectedPerformance?: string;
+    expectedAchieve?: string;
+    expectedGap?: string;
+  }
+
+  const [displayData, setDisplayData] = useState<DashboardData[]>(mockTeamData);
 
   const columns = [
     { key: 'name', label: currentLevel === 0 ? '영업팀' : currentLevel === 1 ? '영업사원' : currentLevel === 2 ? '거래처' : '품목', width: '30%' },
