@@ -1,0 +1,192 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+
+.titleSection {
+  display: flex;
+  gap: 24px;
+}
+
+.titleIcon {
+  width: 72px;
+  height: 72px;
+  background: #FFCA28;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 8px 16px rgba(255, 202, 40, 0.4);
+}
+
+.titleContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.mainTitle {
+  font-size: 38px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+  letter-spacing: -1.5px;
+}
+
+.subTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFCA28;
+  margin-bottom: 12px;
+}
+
+.updateTime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94A3B8;
+  text-transform: uppercase;
+}
+
+.statsSection {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.statsPanel {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.statsTable {
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.statsTable th {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 6px;
+}
+
+.statsTable td {
+  padding: 6px 12px;
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94A3B8;
+  border-right: 1px solid #E2E8F0;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  border-right: 1px solid #E2E8F0;
+}
+
+.progressSummary {
+  background: #F8FAFC;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.progressLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 4px;
+}
+
+.progressValue {
+  font-size: 20px;
+  font-weight: 800;
+  color: #FFCA28;
+}
+
+.controlPanel {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.toggleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 12px 20px;
+  border-radius: 16px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+}
+
+.toggleLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  line-height: 1.2;
+}
+
+.toggleButton {
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleButton.off {
+  background: #F1F5F9;
+  color: #94A3B8;
+}
+
+.toggleButton.on {
+  background: #FFCA28;
+  color: #1a1a1a;
+  box-shadow: 0 4px 10px rgba(255, 202, 40, 0.3);
+}
+
+.unitSelector {
+  display: flex;
+  background: #1a1a1a;
+  border-radius: 14px;
+  padding: 4px;
+}
+
+.unitButton {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 10px;
+  color: #94A3B8;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.unitButton.active {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}

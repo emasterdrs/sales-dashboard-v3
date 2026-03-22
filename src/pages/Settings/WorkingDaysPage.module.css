@@ -1,0 +1,221 @@
+.container {
+  padding: 40px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.titleArea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: #E2E8F0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.monthSelector {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+}
+
+.monthSelector button {
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.currentMonth {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  min-width: 100px;
+  text-align: center;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveBtn:hover {
+  background: #334155;
+  transform: translateY(-2px);
+}
+
+.mainLayout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+}
+
+.calendarArea {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  padding: 24px;
+}
+
+.weekdayHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 12px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  padding: 12px;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendarCell {
+  aspect-ratio: 1;
+  background: #F8FAFC;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.calendarCell:hover {
+  background: #F1F5F9;
+  border: 1px solid #CBD5E0;
+}
+
+.calendarCellBlank {
+  aspect-ratio: 1;
+}
+
+.dayNum {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.weekend {
+  color: #FF5252;
+  background: #FFF5F5;
+}
+
+.holiday {
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+}
+
+.holidayBadge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.05);
+  align-self: flex-end;
+}
+
+.statsCard {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  padding: 32px;
+  height: fit-content;
+}
+
+.statsTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.minusVal {
+  color: #FF5252;
+}
+
+.statTotal {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.totalVal {
+  color: #10B981;
+}
+
+.infoBox {
+  margin-top: 12px;
+  background: #F8FAFC;
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.infoBox p {
+  font-size: 13px;
+  color: #64748B;
+  line-height: 1.5;
+}

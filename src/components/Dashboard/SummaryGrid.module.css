@@ -1,0 +1,76 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 40px;
+  background: white;
+  padding: 32px;
+  border-radius: 32px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  border: 1px solid #E2E8F0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  border-right: 1px solid #F1F5F9;
+}
+
+.card:last-child {
+  border-right: none;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #94A3B8;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.valueContainer {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.value {
+  font-size: 42px;
+  font-weight: 800;
+  color: #CBD5E0;
+}
+
+.unit {
+  font-size: 20px;
+  font-weight: 700;
+  color: #94A3B8;
+}
+
+/* Color Types */
+.primary .value {
+  color: #FFCA28;
+}
+
+.success .value {
+  color: #4CAF50;
+}
+
+.danger .value {
+  color: #FF5252;
+}
+
+.danger .label {
+  color: #FF5252;
+}
+
+.danger .unit {
+  color: #FF5252;
+}
+
+.primary .label {
+  color: #94A3B8;
+}
