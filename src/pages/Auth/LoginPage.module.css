@@ -1,9 +1,23 @@
 .container {
   min-height: 100vh;
   display: flex;
-  background: #111;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top left, #2d3748 0%, #111 100%);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 40px;
+}
+
+.loginWrapper {
+  width: 100%;
+  max-width: 1200px;
+  height: 800px;
+  display: flex;
+  background: #1a202c;
+  border-radius: 32px;
   overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Image Section Styles */
