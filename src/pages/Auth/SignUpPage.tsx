@@ -109,6 +109,21 @@ const SignUpPage: React.FC = () => {
                     </div>
 
                     <div className={styles.inputGroup}>
+                        <label>비밀번호</label>
+                        <div className={styles.inputWrapper}>
+                            <Lock size={18} className={styles.icon} />
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="8자 이상 입력"
+                                required
+                                minLength={8}
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.inputGroup}>
                         <label>이메일</label>
                         <div className={styles.inputWrapper}>
                             <Mail size={18} className={styles.icon} />
@@ -132,21 +147,6 @@ const SignUpPage: React.FC = () => {
                                 onChange={(e) => setTel(e.target.value)}
                                 placeholder="010-0000-0000"
                                 required
-                            />
-                        </div>
-                    </div>
-
-                    <div className={styles.inputGroup}>
-                        <label>비밀번호</label>
-                        <div className={styles.inputWrapper}>
-                            <Lock size={18} className={styles.icon} />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="8자 이상 입력"
-                                required
-                                minLength={8}
                             />
                         </div>
                     </div>
