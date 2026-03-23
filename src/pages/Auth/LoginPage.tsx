@@ -96,7 +96,8 @@ const LoginPage: React.FC = () => {
                 </form>
 
                 <div className={styles.footer}>
-                    <p>처음이신가요? <Link to="/register-company">신규 기업 등록 신청</Link></p>
+                    <p>계정이 없으신가요? <Link to="/signup">일반 회원가입</Link></p>
+                    <p>우리 기업을 등록하려면? <Link to="/register-company">신규 기업 등록 신청</Link></p>
                     <div className={styles.securityNote}>
                         <p>이 서비스는 256비트 암호화로 보호됩니다.</p>
                         <p>관리자 승인 후 대시보드 접근이 가능합니다.</p>

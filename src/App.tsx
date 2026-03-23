@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/Auth/LoginPage';
+import SignUpPage from './pages/Auth/SignUpPage';
+import RegisterCompanyPage from './pages/Auth/RegisterCompanyPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import WorkingDaysPage from './pages/Settings/WorkingDaysPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -30,6 +32,8 @@ const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/register-company" element={<RegisterCompanyPage />} />
           
           {/* Main Sales Dashboard Routes */}
           <Route path="/" element={<ProtectedRoute><Navigate to="/team/goal" replace /></ProtectedRoute>} />
