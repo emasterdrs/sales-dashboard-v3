@@ -8,7 +8,7 @@ import {
   Settings, 
   MessageSquare,
   Users,
-  TrendingDown,
+  TrendingUp,
   LogOut,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -100,7 +100,7 @@ const Sidebar: React.FC = () => {
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
         <div className={styles.logoIcon}>
-          <TrendingDown size={28} />
+          <TrendingUp size={28} />
         </div>
         <div>
           <span className={styles.logoTextMain}>VODA</span>

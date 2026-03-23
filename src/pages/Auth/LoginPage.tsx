@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../api/supabase';
-import { Lock, Mail, AlertCircle, TrendingDown } from 'lucide-react';
+import { Lock, Mail, AlertCircle, TrendingUp } from 'lucide-react';
 import styles from './LoginPage.module.css';
 
 const LoginPage: React.FC = () => {
@@ -79,7 +79,7 @@ const LoginPage: React.FC = () => {
             <div className={styles.loginCard}>
                 <div className={styles.header}>
                     <div className={styles.logoBadge}>
-                        <TrendingDown size={32} color="#f6ad55" />
+                        <TrendingUp size={32} color="#f6ad55" />
                     </div>
                     <h1>스마트 실적 대시보드 VODA</h1>
                     <p>복잡한 매출 데이터를 가장 선명하게 시각화합니다</p>
