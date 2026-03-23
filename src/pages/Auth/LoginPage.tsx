@@ -80,7 +80,7 @@ const LoginPage: React.FC = () => {
             <div className={styles.imageSection}>
                 <div className={styles.overlay}></div>
                 <img 
-                    src="/C:/Users/duri0/.gemini/antigravity/brain/cf1a53e0-eaf6-47e8-846b-7f8383e8e272/voda_brand_visual_1774275440015.png" 
+                    src="/voda-brand.png" 
                     alt="VODA Brand Visual" 
                 />
                 <div className={styles.imageContent}>
