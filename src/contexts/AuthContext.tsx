@@ -18,6 +18,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  effectiveRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null;
+  setSwitchedRole: (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [switchedRole, setSwitchedRole] = useState<'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null>(() => {
+    return localStorage.getItem('voda_switched_role') as any || null;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -68,12 +73,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleSetSwitchedRole = (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => {
+    setSwitchedRole(role);
+    if (role) localStorage.setItem('voda_switched_role', role);
+    else localStorage.removeItem('voda_switched_role');
+  };
+
   const signOut = async () => {
+    localStorage.removeItem('voda_switched_role');
     await supabase.auth.signOut();
   };
 
-  const isAdmin = profile?.role === 'COMPANY_ADMIN' || profile?.role === 'SUPER_ADMIN';
-  const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
+  const realRole = profile?.role;
+  const effectiveRole = (realRole === 'SUPER_ADMIN' && switchedRole) ? switchedRole : realRole;
+
+  const isAdmin = effectiveRole === 'COMPANY_ADMIN' || effectiveRole === 'SUPER_ADMIN';
+  const isSuperAdmin = effectiveRole === 'SUPER_ADMIN';
 
   // Security: Inactivity Logout Logic (30 Minutes)
   useEffect(() => {
@@ -104,7 +119,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signOut, isAdmin, isSuperAdmin }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      isLoading, 
+      signOut, 
+      isAdmin, 
+      isSuperAdmin,
+      effectiveRole: effectiveRole || null,
+      setSwitchedRole: handleSetSwitchedRole
+    }}>
       {children}
     </AuthContext.Provider>
   );

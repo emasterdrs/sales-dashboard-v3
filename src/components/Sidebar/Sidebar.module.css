@@ -163,9 +163,45 @@
 }
 
 .logoutButton:hover {
-  background: #FEE2E2;
-  border-color: #FECACA;
+  background: rgba(245, 101, 101, 0.1);
+  color: #feb2b2;
   transform: translateY(-1px);
+}
+
+/* Role Switcher Styles */
+.roleSwitcher {
+  padding: 16px;
+  background: rgba(246, 173, 85, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+}
+
+.roleSwitcher label {
+  display: block;
+  font-size: 11px;
+  color: #f6ad55;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.roleSwitcher select {
+  width: 100%;
+  background: #2d3748;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #fff;
+  padding: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.roleSwitcher select:focus {
+  border-color: #f6ad55;
+  box-shadow: 0 0 0 2px rgba(246, 173, 85, 0.2);
 }
 
 .logoutButton:active {
