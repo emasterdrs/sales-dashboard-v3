@@ -42,17 +42,35 @@
   border: 1px solid rgba(246, 173, 85, 0.2);
 }
 
-.header h1 {
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  letter-spacing: -0.5px;
+.titleSub {
+  display: block;
+  color: #a0aec0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
 }
 
-.header p {
-  color: #a0aec0;
-  font-size: 14px;
+.mainLogoTitle {
+  color: #fff;
+  font-size: 56px;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1;
+  letter-spacing: -2px;
+  background: linear-gradient(135deg, #fff 30%, #f6ad55 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.tagline {
+  color: #718096;
+  font-size: 15px;
+  margin-top: 12px;
+  font-weight: 500;
 }
 
 .form {
