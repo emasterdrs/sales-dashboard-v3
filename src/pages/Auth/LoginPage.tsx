@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../api/supabase';
-import { Lock, Mail, AlertCircle, TrendingUp } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
 import styles from './LoginPage.module.css';
 
 const LoginPage: React.FC = () => {
@@ -76,72 +76,85 @@ const LoginPage: React.FC = () => {
 
     return (
         <div className={styles.container}>
-            <div className={styles.loginCard}>
-                <div className={styles.header}>
-                    <div className={styles.logoBadge}>
-                        <TrendingUp size={32} color="#f6ad55" />
-                    </div>
-                    <span className={styles.titleSub}>스마트 매출실적 대시보드</span>
-                    <h1 className={styles.mainLogoTitle}>VODA</h1>
-                    <p className={styles.tagline}>한눈에 들어오는 우리 회사의 스마트한 성적표</p>
+            {/* Left Side: Premium Brand Image */}
+            <div className={styles.imageSection}>
+                <div className={styles.overlay}></div>
+                <img 
+                    src="/C:/Users/duri0/.gemini/antigravity/brain/cf1a53e0-eaf6-47e8-846b-7f8383e8e272/voda_brand_visual_1774275440015.png" 
+                    alt="VODA Brand Visual" 
+                />
+                <div className={styles.imageContent}>
+                    <h2>Data with Vision</h2>
+                    <p>당신의 비즈니스를 시각화합니다</p>
                 </div>
+            </div>
 
-                <form onSubmit={handleLogin} className={styles.form}>
-                    {error && (
-                        <div className={styles.errorAlert}>
-                            <AlertCircle size={18} />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <div className={styles.inputGroup}>
-                        <label>아이디 (ID)</label>
-                        <div className={styles.inputWrapper}>
-                            <Mail size={18} className={styles.icon} />
-                            <input
-                                type="text"
-                                value={loginId}
-                                onChange={(e) => setLoginId(e.target.value)}
-                                placeholder="아이디를 입력하세요"
-                                required
-                            />
-                        </div>
+            {/* Right Side: Modern Login Form */}
+            <div className={styles.formSection}>
+                <div className={styles.loginCard}>
+                    <div className={styles.header}>
+                        <span className={styles.titleSub}>스마트 매출실적 대시보드</span>
+                        <h1 className={styles.mainLogoTitle}>VODA</h1>
+                        <p className={styles.tagline}>한눈에 들어오는 우리 회사의 스마트한 성적표</p>
                     </div>
 
-                    <div className={styles.inputGroup}>
-                        <label>비밀번호</label>
-                        <div className={styles.inputWrapper}>
-                            <Lock size={18} className={styles.icon} />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="비밀번호를 입력하세요"
-                                required
-                            />
+                    <form onSubmit={handleLogin} className={styles.form}>
+                        {error && (
+                            <div className={styles.errorAlert}>
+                                <AlertCircle size={18} />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
+                        <div className={styles.inputGroup}>
+                            <label>아이디 (ID)</label>
+                            <div className={styles.inputWrapper}>
+                                <Mail size={18} className={styles.icon} />
+                                <input
+                                    type="text"
+                                    value={loginId}
+                                    onChange={(e) => setLoginId(e.target.value)}
+                                    placeholder="아이디를 입력하세요"
+                                    required
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <label className={styles.rememberMe}>
-                        <input 
-                            type="checkbox" 
-                            checked={rememberId} 
-                            onChange={(e) => setRememberId(e.target.checked)} 
-                        />
-                        아이디 저장
-                    </label>
+                        <div className={styles.inputGroup}>
+                            <label>비밀번호</label>
+                            <div className={styles.inputWrapper}>
+                                <Lock size={18} className={styles.icon} />
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="비밀번호를 입력하세요"
+                                    required
+                                />
+                            </div>
+                        </div>
 
-                    <button type="submit" className={styles.loginButton} disabled={loading}>
-                        {loading ? '로그인 중...' : '안전하게 로그인'}
-                    </button>
-                </form>
+                        <label className={styles.rememberMe}>
+                            <input 
+                                type="checkbox" 
+                                checked={rememberId} 
+                                onChange={(e) => setRememberId(e.target.checked)} 
+                            />
+                            아이디 저장
+                        </label>
 
-                <div className={styles.footer}>
-                    <p>계정이 없으신가요? <Link to="/signup">일반 회원가입</Link></p>
-                    <p>우리 기업을 등록하려면? <Link to="/register-company">신규 기업 등록 신청</Link></p>
-                    <div className={styles.securityNote}>
-                        <p>VODA는 소중한 데이터를 안전하게 보호하고 있습니다.</p>
-                        <p>가입 후 승인 절차가 완료되면 바로 이용하실 수 있습니다.</p>
+                        <button type="submit" className={styles.loginButton} disabled={loading}>
+                            {loading ? '로그인 중...' : '안전하게 로그인'}
+                        </button>
+                    </form>
+
+                    <div className={styles.footer}>
+                        <p>계정이 없으신가요? <Link to="/signup">일반 회원가입</Link></p>
+                        <p>우리 기업을 등록하려면? <Link to="/register-company">신규 기업 등록 신청</Link></p>
+                        <div className={styles.securityNote}>
+                            <p>VODA는 소중한 데이터를 안전하게 보호하고 있습니다.</p>
+                            <p>가입 후 승인 절차가 완료되면 바로 이용하실 수 있습니다.</p>
+                        </div>
                     </div>
                 </div>
             </div>
