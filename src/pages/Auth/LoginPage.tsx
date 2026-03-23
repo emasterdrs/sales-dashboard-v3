@@ -81,7 +81,7 @@ const LoginPage: React.FC = () => {
                     <div className={styles.logoBadge}>
                         <TrendingUp size={32} color="#f6ad55" />
                     </div>
-                    <h1>스마트 실적 대시보드 VODA</h1>
+                    <h1>스마트 매출실적 대시보드 VODA</h1>
                     <p>한눈에 들어오는 우리 회사의 스마트한 성적표</p>
                 </div>
 
