@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../api/supabase';
-import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, AlertCircle, TrendingDown } from 'lucide-react';
 import styles from './LoginPage.module.css';
 
 const LoginPage: React.FC = () => {
@@ -79,10 +79,10 @@ const LoginPage: React.FC = () => {
             <div className={styles.loginCard}>
                 <div className={styles.header}>
                     <div className={styles.logoBadge}>
-                        <ShieldCheck size={32} color="#f6ad55" />
+                        <TrendingDown size={32} color="#f6ad55" />
                     </div>
-                    <h1>Sales Performance Dashboard</h1>
-                    <p>보안이 강화된 프리미엄 실적 관리 솔루션</p>
+                    <h1>스마트 실적 대시보드 VODA</h1>
+                    <p>복잡한 매출 데이터를 가장 선명하게 시각화합니다</p>
                 </div>
 
                 <form onSubmit={handleLogin} className={styles.form}>
