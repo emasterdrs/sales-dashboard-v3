@@ -9,7 +9,6 @@ import {
   MessageSquare,
   Users,
   TrendingDown,
-  LayoutDashboard
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import styles from './Sidebar.module.css';
@@ -38,8 +37,7 @@ const Sidebar: React.FC = () => {
         { icon: Target, label: "목표 대비", path: "/team/goal" },
         { icon: History, label: "전년 대비", path: "/team/yoy" },
         { icon: BarChart3, label: "전월 대비", path: "/team/mom" },
-        { icon: Calendar, label: "누계 (목표)", path: "/team/target-acc" },
-        { icon: Database, label: "누계 (전년)", path: "/team/yoy-acc" },
+        { icon: Calendar, label: "누계 실적", path: "/team/acc" },
       ]
     },
     {
@@ -48,8 +46,7 @@ const Sidebar: React.FC = () => {
         { icon: Target, label: "목표 대비", path: "/type/goal" },
         { icon: History, label: "전년 대비", path: "/type/yoy" },
         { icon: BarChart3, label: "전월 대비", path: "/type/mom" },
-        { icon: Calendar, label: "누계 (목표)", path: "/type/target-acc" },
-        { icon: Database, label: "누계 (전년)", path: "/type/yoy-acc" },
+        { icon: Calendar, label: "누계 실적", path: "/type/acc" },
       ]
     },
     {
@@ -58,8 +55,8 @@ const Sidebar: React.FC = () => {
         { icon: Calendar, label: "영업일수 설정", path: "/settings/days" },
         { icon: Users, label: "조직 및 인원", path: "/settings/org" },
         { icon: Settings, label: "유형명 설정", path: "/settings/types" },
-        { icon: LayoutDashboard, label: "데이터 업로드", path: "/settings/upload" },
-        { icon: MessageSquare, label: "문의하기", path: "/support/inquiry" },
+        { icon: Database, label: "데이터 업로드", path: "/settings/upload" },
+        { icon: MessageSquare, label: "문의 메시지", path: "/support/inquiry" },
       ]
     }
   ];
@@ -71,8 +68,8 @@ const Sidebar: React.FC = () => {
           <TrendingDown size={28} />
         </div>
         <div>
-          <span className={styles.logoTextMain}>BNN BI</span>
-          <span className={styles.logoTextSub}>SALES PERFORMANCE</span>
+          <span className={styles.logoTextMain}>VODA</span>
+          <span className={styles.logoTextSub}>영업의 답을 보다</span>
         </div>
       </div>
 
@@ -97,8 +94,8 @@ const Sidebar: React.FC = () => {
         <div className={styles.userProfile}>
           <div className={styles.userAvatar}>JD</div>
           <div className={styles.userInfo}>
-            <span className={styles.userName}>홍길동</span>
-            <span className={styles.userRole}>관리자</span>
+            <span className={styles.userName}>홍길동 차장</span>
+            <span className={styles.userRole}>영업 1팀</span>
           </div>
         </div>
       </div>

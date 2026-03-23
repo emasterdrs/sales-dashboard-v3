@@ -22,7 +22,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 // Obfuscated Admin Route Path (Requirement: Use random paths instead of /admin)
-const ADMIN_PATH = "/adm-s-2s9k2"; // For demonstration
+const ADMIN_PATH = "/mng-voda-8a2b"; 
 
 const App: React.FC = () => {
   return (
@@ -33,19 +33,30 @@ const App: React.FC = () => {
           
           {/* Main Sales Dashboard Routes */}
           <Route path="/" element={<ProtectedRoute><Navigate to="/team/goal" replace /></ProtectedRoute>} />
+          
+          {/* Team Based Routes */}
           <Route path="/team/goal" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/team/yoy" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/team/mom" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/team/target-acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/team/yoy-acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/team/acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          
+          {/* Type Based Routes */}
+          <Route path="/type/goal" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/type/yoy" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/type/mom" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/type/acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           
           {/* Settings Routes */}
           <Route path="/settings/days" element={<ProtectedRoute><WorkingDaysPage /></ProtectedRoute>} />
-          <Route path="/settings/org" element={<ProtectedRoute><div>Org & Staff Management (Skeleton)</div></ProtectedRoute>} />
-          <Route path="/settings/types" element={<ProtectedRoute><div>Type Management (Skeleton)</div></ProtectedRoute>} />
+          <Route path="/settings/org" element={<ProtectedRoute><div>조직 및 인원 관리 (개발 예정)</div></ProtectedRoute>} />
+          <Route path="/settings/types" element={<ProtectedRoute><div>유형명 설정 (개발 예정)</div></ProtectedRoute>} />
+          <Route path="/settings/upload" element={<ProtectedRoute><div>데이터 업로드 (개발 예정)</div></ProtectedRoute>} />
+          
+          {/* Support Routes */}
+          <Route path="/support/inquiry" element={<ProtectedRoute><div>문의 메시지 (개발 예정)</div></ProtectedRoute>} />
           
           {/* Admin Routes (Obfuscated) */}
-          <Route path={ADMIN_PATH} element={<ProtectedRoute><div>Super Admin Panel (Skeleton)</div></ProtectedRoute>} />
+          <Route path={ADMIN_PATH} element={<ProtectedRoute><div>VODA 본사 슈퍼 관리자 패널</div></ProtectedRoute>} />
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
