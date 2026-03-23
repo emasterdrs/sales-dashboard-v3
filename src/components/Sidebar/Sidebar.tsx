@@ -9,8 +9,10 @@ import {
   MessageSquare,
   Users,
   TrendingDown,
+  LogOut,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import styles from './Sidebar.module.css';
 
 interface SidebarItemProps {
@@ -29,6 +31,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, path, isAc
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
+  const { signOut, profile } = useAuth();
 
   const menuSections = [
     {
@@ -92,12 +95,18 @@ const Sidebar: React.FC = () => {
 
       <div className={styles.footer}>
         <div className={styles.userProfile}>
-          <div className={styles.userAvatar}>JD</div>
+          <div className={styles.userAvatar}>
+            {profile?.nickname?.substring(0, 1) || 'U'}
+          </div>
           <div className={styles.userInfo}>
-            <span className={styles.userName}>홍길동 차장</span>
-            <span className={styles.userRole}>영업 1팀</span>
+            <span className={styles.userName}>{profile?.nickname || '사용자'}</span>
+            <span className={styles.userRole}>{profile?.role === 'SUPER_ADMIN' ? '슈퍼 관리자' : '영업팀원'}</span>
           </div>
         </div>
+        <button className={styles.logoutButton} onClick={signOut}>
+          <LogOut size={18} />
+          <span>안전 로그아웃</span>
+        </button>
       </div>
     </aside>
   );

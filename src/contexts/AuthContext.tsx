@@ -75,6 +75,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = profile?.role === 'COMPANY_ADMIN' || profile?.role === 'SUPER_ADMIN';
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
+  // Security: Inactivity Logout Logic (30 Minutes)
+  useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: number;
+    const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+    const resetTimer = () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        alert('30분 동안 활동이 없어 보안을 위해 자동으로 로그아웃되었습니다.');
+        signOut();
+      }, TIMEOUT_MS);
+    };
+
+    // Events to track user activity
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(event => document.addEventListener(event, resetTimer));
+    
+    // Initial timer
+    resetTimer();
+
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      events.forEach(event => document.removeEventListener(event, resetTimer));
+    };
+  }, [user]);
+
   return (
     <AuthContext.Provider value={{ user, session, profile, isLoading, signOut, isAdmin, isSuperAdmin }}>
       {children}
