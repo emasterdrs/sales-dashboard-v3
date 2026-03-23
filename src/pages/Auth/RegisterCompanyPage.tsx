@@ -8,6 +8,8 @@ const RegisterCompanyPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [nickname, setNickname] = useState('');
+    const [username, setUsername] = useState('');
+    const [tel, setTel] = useState('');
     const [companyName, setCompanyName] = useState('');
     const [businessRegDoc, setBusinessRegDoc] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -28,6 +30,8 @@ const RegisterCompanyPage: React.FC = () => {
                 options: {
                     data: {
                         nickname,
+                        username,
+                        tel,
                         role: 'COMPANY_ADMIN',
                     }
                 }
@@ -140,7 +144,21 @@ const RegisterCompanyPage: React.FC = () => {
                     </div>
 
                     <div className={styles.inputGroup}>
-                        <label>관리자 이메일 (ID)</label>
+                        <label>관리자 아이디 (ID)</label>
+                        <div className={styles.inputWrapper}>
+                            <User size={18} className={styles.icon} />
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="voda_admin"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.inputGroup}>
+                        <label>관리자 이메일</label>
                         <div className={styles.inputWrapper}>
                             <Mail size={18} className={styles.icon} />
                             <input
@@ -148,6 +166,20 @@ const RegisterCompanyPage: React.FC = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="admin@company.com"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.inputGroup}>
+                        <label>관리자 전화번호</label>
+                        <div className={styles.inputWrapper}>
+                            <Mail size={18} className={styles.icon} />
+                            <input
+                                type="tel"
+                                value={tel}
+                                onChange={(e) => setTel(e.target.value)}
+                                placeholder="010-0000-0000"
                                 required
                             />
                         </div>

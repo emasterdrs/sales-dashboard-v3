@@ -8,6 +8,8 @@ const SignUpPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [nickname, setNickname] = useState('');
+    const [username, setUsername] = useState('');
+    const [tel, setTel] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -25,6 +27,8 @@ const SignUpPage: React.FC = () => {
                 options: {
                     data: {
                         nickname,
+                        username,
+                        tel,
                     }
                 }
             });
@@ -77,7 +81,7 @@ const SignUpPage: React.FC = () => {
                     )}
 
                     <div className={styles.inputGroup}>
-                        <label>이름 / 닉네임</label>
+                        <label>이름 (성함)</label>
                         <div className={styles.inputWrapper}>
                             <User size={18} className={styles.icon} />
                             <input
@@ -91,7 +95,21 @@ const SignUpPage: React.FC = () => {
                     </div>
 
                     <div className={styles.inputGroup}>
-                        <label>이메일 (아이디)</label>
+                        <label>아이디 (Login ID)</label>
+                        <div className={styles.inputWrapper}>
+                            <User size={18} className={styles.icon} />
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="voda_user"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.inputGroup}>
+                        <label>이메일</label>
                         <div className={styles.inputWrapper}>
                             <Mail size={18} className={styles.icon} />
                             <input
@@ -99,6 +117,20 @@ const SignUpPage: React.FC = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="user@company.com"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className={styles.inputGroup}>
+                        <label>전화번호</label>
+                        <div className={styles.inputWrapper}>
+                            <Mail size={18} className={styles.icon} />
+                            <input
+                                type="tel"
+                                value={tel}
+                                onChange={(e) => setTel(e.target.value)}
+                                placeholder="010-0000-0000"
                                 required
                             />
                         </div>
