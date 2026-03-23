@@ -130,7 +130,7 @@ const RegisterCompanyPage: React.FC = () => {
                     </div>
 
                     <div className={styles.inputGroup}>
-                        <label>대표 관리자 이름</label>
+                        <label>관리자 이름</label>
                         <div className={styles.inputWrapper}>
                             <User size={18} className={styles.icon} />
                             <input
