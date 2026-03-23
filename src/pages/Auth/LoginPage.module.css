@@ -58,29 +58,29 @@
   position: relative;
   z-index: 2;
   text-align: left;
-  padding: 80px;
+  padding: 40px 60px;
   width: 100%;
-  max-width: 800px;
 }
 
 .imageContent h2 {
   color: #fff;
-  font-size: 82px;
+  font-size: 52px;
   font-weight: 900;
   line-height: 1.1;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   background: linear-gradient(90deg, #fff 0%, #f6ad55 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: -3px;
+  letter-spacing: -2px;
+  white-space: nowrap;
 }
 
 .imageContent p {
   color: #cbd5e0;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 300;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
 }
 
 /* Form Section Styles */
