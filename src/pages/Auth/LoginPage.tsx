@@ -5,17 +5,26 @@ import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
 import styles from './LoginPage.module.css';
 
 const LoginPage: React.FC = () => {
-    const [email, setEmail] = useState('');
+    const [loginId, setLoginId] = useState(''); // Use Login ID instead of email
     const [password, setPassword] = useState('');
+    const [rememberId, setRememberId] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loginAttempts, setLoginAttempts] = useState(0);
     const navigate = useNavigate();
 
+    // Check for saved ID on mount
+    React.useEffect(() => {
+        const savedId = localStorage.getItem('voda_saved_id');
+        if (savedId) {
+            setLoginId(savedId);
+            setRememberId(true);
+        }
+    }, []);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Basic Brute Force Protection (Frontend)
         if (loginAttempts >= 5) {
             setError('보안을 위해 로그인이 일시적으로 제한되었습니다. 잠시 후 다시 시도해 주세요.');
             return;
@@ -25,18 +34,40 @@ const LoginPage: React.FC = () => {
         setError(null);
 
         try {
+            let emailToUse = loginId;
+
+            // Step 1: Check if input is a Username/LoginID (not email format)
+            if (!loginId.includes('@')) {
+                const { data: profileData, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('email')
+                    .eq('username', loginId)
+                    .single();
+                
+                if (profileError || !profileData) {
+                    throw new Error('등록되지 않은 아이디입니다.');
+                }
+                emailToUse = profileData.email;
+            }
+
+            // Step 2: Perform Login
             const { error: authError } = await supabase.auth.signInWithPassword({
-                email,
+                email: emailToUse,
                 password,
             });
 
-            if (authError) {
-                setLoginAttempts(prev => prev + 1);
-                throw authError;
+            if (authError) throw authError;
+
+            // Step 3: Remember ID if checked
+            if (rememberId) {
+                localStorage.setItem('voda_saved_id', loginId);
+            } else {
+                localStorage.removeItem('voda_saved_id');
             }
 
             navigate('/');
         } catch (err: any) {
+            setLoginAttempts(prev => prev + 1);
             setError(err.message || '로그인에 실패했습니다. 아이디와 비밀번호를 확인해 주세요.');
         } finally {
             setLoading(false);
@@ -63,14 +94,14 @@ const LoginPage: React.FC = () => {
                     )}
 
                     <div className={styles.inputGroup}>
-                        <label>아이디 (이메일)</label>
+                        <label>아이디 (ID)</label>
                         <div className={styles.inputWrapper}>
                             <Mail size={18} className={styles.icon} />
                             <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="example@company.com"
+                                type="text"
+                                value={loginId}
+                                onChange={(e) => setLoginId(e.target.value)}
+                                placeholder="아이디를 입력하세요"
                                 required
                             />
                         </div>
@@ -84,11 +115,20 @@ const LoginPage: React.FC = () => {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
+                                placeholder="비밀번호를 입력하세요"
                                 required
                             />
                         </div>
                     </div>
+
+                    <label className={styles.rememberMe}>
+                        <input 
+                            type="checkbox" 
+                            checked={rememberId} 
+                            onChange={(e) => setRememberId(e.target.checked)} 
+                        />
+                        아이디 저장
+                    </label>
 
                     <button type="submit" className={styles.loginButton} disabled={loading}>
                         {loading ? '로그인 중...' : '안전하게 로그인'}
@@ -99,8 +139,8 @@ const LoginPage: React.FC = () => {
                     <p>계정이 없으신가요? <Link to="/signup">일반 회원가입</Link></p>
                     <p>우리 기업을 등록하려면? <Link to="/register-company">신규 기업 등록 신청</Link></p>
                     <div className={styles.securityNote}>
-                        <p>이 서비스는 256비트 암호화로 보호됩니다.</p>
-                        <p>관리자 승인 후 대시보드 접근이 가능합니다.</p>
+                        <p>VODA는 소중한 데이터를 안전하게 보호하고 있습니다.</p>
+                        <p>가입 후 승인 절차가 완료되면 바로 이용하실 수 있습니다.</p>
                     </div>
                 </div>
             </div>
