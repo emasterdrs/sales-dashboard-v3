@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import DashboardHeader from '../../components/Dashboard/DashboardHeader';
 import SummaryGrid from '../../components/Dashboard/SummaryGrid';
 import DrillDownTable from '../../components/Dashboard/DrillDownTable';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './DashboardPage.module.css';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,8 +23,9 @@ interface DashboardData {
 }
 
 const DashboardPage: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveRole, isLoading: authLoading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
   const [unit, setUnit] = useState<'won' | 'million' | 'billion'>('billion');
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string; level: number }[]>([]);
@@ -52,15 +53,24 @@ const DashboardPage: React.FC = () => {
     return '원';
   };
 
+  // Redirect Super Admin if not in simulation mode
   useEffect(() => {
-    if (!profile?.company_id) return;
-    fetchDashboardInitialData();
-  }, [profile?.company_id, unit]);
+    if (!authLoading && effectiveRole === 'SUPER_ADMIN') {
+      navigate('/mng-voda-8a2b', { replace: true });
+    }
+  }, [authLoading, effectiveRole, navigate]);
 
   useEffect(() => {
+    if (authLoading || effectiveRole === 'SUPER_ADMIN') return;
     if (!profile?.company_id) return;
+    fetchDashboardInitialData();
+  }, [profile?.company_id, unit, authLoading, effectiveRole]);
+
+  useEffect(() => {
+    if (authLoading || effectiveRole === 'SUPER_ADMIN') return;
     refreshDrillDownData();
-  }, [currentLevel, selectedIds, profile?.company_id, unit]);
+  }, [currentLevel, selectedIds, authLoading, effectiveRole]);
+
 
   const fetchDashboardInitialData = async () => {
     try {
