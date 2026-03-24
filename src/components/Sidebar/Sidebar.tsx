@@ -11,13 +11,9 @@ import {
   Users,
   TrendingUp,
   LogOut,
-  MessageSquare, // Added MessageSquare as it was used but not imported
-  ShieldCheck, // Added from the instruction's implied changes
-  Mail, // Added from the instruction's implied changes
-  ArrowRight, // Added from the instruction's implied changes
-  UserCircle, // Added from the instruction's implied changes
-  CheckCircle2, // Added from the instruction's implied changes
+  MessageSquare,
 } from 'lucide-react';
+
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './Sidebar.module.css';
