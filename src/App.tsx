@@ -12,12 +12,13 @@ import DataUploadPage from './pages/Settings/DataUploadPage';
 import TargetManagementPage from './pages/Settings/TargetManagementPage';
 import InquiryPage from './pages/Support/InquiryPage';
 import CompanyApprovalPage from './pages/Admin/CompanyApprovalPage';
+import SuperAdminDashboard from './pages/Admin/SuperAdminDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './index.css';
 
 // Protected Route Component for Auth and Company Verification
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
+  const { user, profile, effectiveRole, isLoading } = useAuth(); // Added profile, effectiveRole
 
   if (isLoading) return <div className="loading-screen">Loading...</div>;
   
@@ -30,6 +31,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const App: React.FC = () => {
+  const { user, profile, effectiveRole } = useAuth(); // Added profile, effectiveRole
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -39,7 +41,12 @@ const App: React.FC = () => {
           <Route path="/register-company" element={<RegisterCompanyPage />} />
           
           {/* Main Sales Dashboard Routes */}
-          <Route path="/" element={<ProtectedRoute><Navigate to="/team/goal" replace /></ProtectedRoute>} />
+          {/* Main Routes */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              {effectiveRole === 'SUPER_ADMIN' ? <Navigate to="/mng-voda-8a2b" replace /> : <Navigate to="/team/goal" replace />}
+            </ProtectedRoute>
+          } />
           
           {/* Team Based Routes */}
           <Route path="/team/goal" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

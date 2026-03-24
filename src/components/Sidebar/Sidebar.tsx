@@ -1,15 +1,22 @@
 import React from 'react';
-import { 
-  Target, 
-  History, 
-  BarChart3, 
-  Calendar, 
-  Database, 
-  Settings, 
-  MessageSquare,
+import {
+  Target,
+  History,
+  BarChart3,
+  Calendar,
+  Database,
+  Settings,
+  LayoutDashboard,
+  Building2,
   Users,
   TrendingUp,
   LogOut,
+  MessageSquare, // Added MessageSquare as it was used but not imported
+  ShieldCheck, // Added from the instruction's implied changes
+  Mail, // Added from the instruction's implied changes
+  ArrowRight, // Added from the instruction's implied changes
+  UserCircle, // Added from the instruction's implied changes
+  CheckCircle2, // Added from the instruction's implied changes
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -81,8 +88,8 @@ const Sidebar: React.FC = () => {
     menuSections.push({
       title: "시스템 관리 (VODA)",
       items: [
-        { icon: Users, label: "기업 가입 승인", path: "/mng-voda-8a2b/approvals" },
-        { icon: Database, label: "전체 기업 관리", path: "/mng-voda-8a2b/companies" },
+        { icon: LayoutDashboard, label: "관리자 홈", path: "/mng-voda-8a2b" },
+        { icon: Building2, label: "가입 기업 관리", path: "/mng-voda-8a2b/companies" },
         { icon: MessageSquare, label: "전체 문의 확인", path: "/mng-voda-8a2b/inquiries" },
       ]
     });
@@ -109,22 +116,27 @@ const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Role Switcher (Only for Real Super Admin) */}
-      {profile?.role === 'SUPER_ADMIN' && (
-        <div className={styles.roleSwitcher}>
-          <label>권한 테스트 모드</label>
-          <select 
-            value={effectiveRole || ''} 
-            onChange={(e) => setSwitchedRole(e.target.value as any)}
-          >
-            <option value="SUPER_ADMIN">슈퍼 관리자</option>
-            <option value="COMPANY_ADMIN">기업 관리자</option>
-            <option value="USER">일반 사용자</option>
-          </select>
-        </div>
-      )}
-
       <nav className={styles.nav}>
+        {/* Role Switcher (Only for Real Super Admin) */}
+        {profile?.role === 'SUPER_ADMIN' && (
+          <div className={styles.roleSwitcher}>
+            <label>권한 시뮬레이션</label>
+            <div className={styles.switcherGroup}>
+              <select 
+                value={effectiveRole || ''} 
+                onChange={(e) => {
+                  setSwitchedRole(e.target.value as any);
+                  window.location.href = '/'; 
+                }}
+              >
+                <option value="SUPER_ADMIN">슈퍼 관리자 모드</option>
+                <option value="COMPANY_ADMIN">기업 관리자 모드</option>
+                <option value="USER">일반 사용자 모드</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {menuSections.map((section, idx) => (
           <div key={idx} className={styles.section}>
             <h3 className={styles.sectionTitle}>{section.title}</h3>
