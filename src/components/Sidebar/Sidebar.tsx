@@ -68,6 +68,7 @@ const Sidebar: React.FC = () => {
       items: [
         { icon: Calendar, label: "영업일수 설정", path: "/settings/days" },
         { icon: Users, label: "조직 및 인원", path: "/settings/org" },
+        { icon: Target, label: "목표 실적 설정", path: "/settings/targets" },
         { icon: Settings, label: "유형명 설정", path: "/settings/types" },
         { icon: Database, label: "데이터 업로드", path: "/settings/upload" },
         { icon: MessageSquare, label: "문의 메시지", path: "/support/inquiry" },

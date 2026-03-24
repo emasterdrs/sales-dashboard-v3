@@ -23,15 +23,16 @@ interface SummaryGridProps {
   performance: string;
   achievementRate: string;
   progressGap: string;
+  unit: string;
 }
 
-const SummaryGrid: React.FC<SummaryGridProps> = ({ goal, performance, achievementRate, progressGap }) => {
+const SummaryGrid: React.FC<SummaryGridProps> = ({ goal, performance, achievementRate, progressGap, unit }) => {
   return (
     <div className={styles.grid}>
-      <SummaryCard label="목표" value={goal} unit="억" />
-      <SummaryCard label="실적" value={performance} unit="억" type="primary" />
+      <SummaryCard label="목표" value={goal} unit={unit} />
+      <SummaryCard label="실적" value={performance} unit={unit} type="primary" />
       <SummaryCard label="현재 달성률" value={achievementRate} unit="%" />
-      <SummaryCard label="진도율 GAP" value={`${progressGap}`} unit="억" type="danger" />
+      <SummaryCard label="진도율 GAP" value={`${progressGap}`} unit={unit} type="danger" />
     </div>
   );
 };

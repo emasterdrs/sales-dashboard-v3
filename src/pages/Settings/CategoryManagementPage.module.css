@@ -1,0 +1,273 @@
+.container {
+  padding: 40px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.titleArea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: #E2E8F0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.mainLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.card {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cardTitleArea {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cardTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.addBtn:hover {
+  background: #E2E8F0;
+  color: #1e293b;
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.item:hover {
+  background: white;
+  border-color: #CBD5E1;
+  transform: translateX(4px);
+}
+
+.itemActive {
+  background: #1a1a1a;
+  color: white;
+  border-color: #1a1a1a;
+}
+
+.itemName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.itemActions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.item:hover .itemActions {
+  opacity: 1;
+}
+
+.itemActive .itemActions {
+  opacity: 1;
+}
+
+.actionBtn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.itemActive .actionBtn {
+  color: rgba(255,255,255,0.6);
+}
+
+.actionBtn:hover {
+  background: #E2E8F0;
+  color: #1e293b;
+}
+
+.itemActive .actionBtn:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.emptyState {
+  padding: 40px 0;
+  text-align: center;
+  color: #94A3B8;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.05);
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.cancelBtn {
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmBtn {
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.loadingArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+  color: #94A3B8;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

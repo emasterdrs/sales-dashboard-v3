@@ -6,6 +6,12 @@ import SignUpPage from './pages/Auth/SignUpPage';
 import RegisterCompanyPage from './pages/Auth/RegisterCompanyPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import WorkingDaysPage from './pages/Settings/WorkingDaysPage';
+import OrgManagementPage from './pages/Settings/OrgManagementPage';
+import CategoryManagementPage from './pages/Settings/CategoryManagementPage';
+import DataUploadPage from './pages/Settings/DataUploadPage';
+import TargetManagementPage from './pages/Settings/TargetManagementPage';
+import InquiryPage from './pages/Support/InquiryPage';
+import CompanyApprovalPage from './pages/Admin/CompanyApprovalPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './index.css';
 
@@ -22,9 +28,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   return <MainLayout>{children}</MainLayout>;
 };
-
-// Obfuscated Admin Route Path (Requirement: Use random paths instead of /admin)
-const ADMIN_PATH = "/mng-voda-8a2b"; 
 
 const App: React.FC = () => {
   return (
@@ -52,15 +55,18 @@ const App: React.FC = () => {
           
           {/* Settings Routes */}
           <Route path="/settings/days" element={<ProtectedRoute><WorkingDaysPage /></ProtectedRoute>} />
-          <Route path="/settings/org" element={<ProtectedRoute><div>조직 및 인원 관리 (개발 예정)</div></ProtectedRoute>} />
-          <Route path="/settings/types" element={<ProtectedRoute><div>유형명 설정 (개발 예정)</div></ProtectedRoute>} />
-          <Route path="/settings/upload" element={<ProtectedRoute><div>데이터 업로드 (개발 예정)</div></ProtectedRoute>} />
+          <Route path="/settings/org" element={<ProtectedRoute><OrgManagementPage /></ProtectedRoute>} />
+          <Route path="/settings/targets" element={<ProtectedRoute><TargetManagementPage /></ProtectedRoute>} />
+          <Route path="/settings/types" element={<ProtectedRoute><CategoryManagementPage /></ProtectedRoute>} />
+          <Route path="/settings/upload" element={<ProtectedRoute><DataUploadPage /></ProtectedRoute>} />
           
           {/* Support Routes */}
-          <Route path="/support/inquiry" element={<ProtectedRoute><div>문의 메시지 (개발 예정)</div></ProtectedRoute>} />
+          <Route path="/support/inquiry" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />
           
           {/* Admin Routes (Obfuscated) */}
-          <Route path={ADMIN_PATH} element={<ProtectedRoute><div>VODA 본사 슈퍼 관리자 패널</div></ProtectedRoute>} />
+          {/* <Route path={ADMIN_PATH} element={<ProtectedRoute><div>VODA 본사 슈퍼 관리자 패널</div></ProtectedRoute>} /> */}
+          <Route path="/mng-voda-8a2b/companies" element={<ProtectedRoute><CompanyApprovalPage /></ProtectedRoute>} />
+          <Route path="/mng-voda-8a2b/inquiries" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

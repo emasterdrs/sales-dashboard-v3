@@ -1,0 +1,150 @@
+.container {
+  padding: 40px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.titleArea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: #E2E8F0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.searchBar input {
+  flex: 1;
+  border: none;
+  font-size: 14px;
+}
+
+.searchBar input:focus {
+  outline: none;
+}
+
+.card {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 20px;
+  background: #F8FAFC;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.table td {
+  padding: 20px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 14px;
+  color: #475569;
+}
+
+.companyName {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.approved {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+.pending {
+  background: #FFFBEB;
+  color: #F59E0B;
+}
+
+.approveBtn {
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revokeBtn {
+  background: #F1F5F9;
+  color: #ef4444;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.loadingArea {
+  padding: 100px 0;
+  text-align: center;
+  color: #94A3B8;
+}
+
+.animateSpin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

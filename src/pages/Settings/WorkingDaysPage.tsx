@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   format, 
   startOfMonth, 
@@ -7,19 +7,63 @@ import {
   isWeekend, 
   isSameDay, 
   addMonths, 
-  subMonths 
+  subMonths,
+  parseISO
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Calendar as CalendarIcon, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Calendar as CalendarIcon, Info, Loader2 } from 'lucide-react';
 import styles from './WorkingDaysPage.module.css';
+import { supabase } from '../../api/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const WorkingDaysPage: React.FC = () => {
+  const { profile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [holidays, setHolidays] = useState<Date[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Load config for the current month
+  useEffect(() => {
+    const fetchConfig = async () => {
+      if (!profile?.company_id) return;
+      
+      setIsLoading(true);
+      try {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+
+        const { data, error } = await supabase
+          .from('working_days_config')
+          .select('holidays')
+          .eq('company_id', profile.company_id)
+          .eq('year', year)
+          .eq('month', month)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error('Error fetching working days config:', error);
+          return;
+        }
+
+        if (data && data.holidays) {
+          const loadedHolidays = (data.holidays as string[]).map(h => parseISO(h));
+          setHolidays(loadedHolidays);
+        } else {
+          setHolidays([]);
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConfig();
+  }, [currentDate, profile?.company_id]);
 
   // Calculate stats based on current month selection
   const totalDays = monthDays.length;
@@ -30,8 +74,6 @@ const WorkingDaysPage: React.FC = () => {
   const workingDays = totalDays - weekendDays - customHolidays;
 
   const toggleHoliday = (day: Date) => {
-    // If it's a weekend, it's already not a working day by default.
-    // If user clicks, we toggle it in custom holidays.
     const exists = holidays.some(h => isSameDay(h, day));
     if (exists) {
       setHolidays(holidays.filter(h => !isSameDay(h, day)));
@@ -41,12 +83,37 @@ const WorkingDaysPage: React.FC = () => {
   };
 
   const saveConfig = async () => {
+    if (!profile?.company_id) {
+      alert('로그인이 필요하거나 회사 정보가 없습니다.');
+      return;
+    }
+
     setIsSaving(true);
-    // Logic for Supabase saving: upsert into 'working_days_config'
-    setTimeout(() => {
-        setIsSaving(false);
-        alert('영업일수 설정이 저장되었습니다.');
-    }, 1000);
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const holidayStrings = holidays.map(h => format(h, 'yyyy-MM-dd'));
+
+      const { error } = await supabase
+        .from('working_days_config')
+        .upsert({
+          company_id: profile.company_id,
+          year,
+          month,
+          total_days: totalDays,
+          holidays: holidayStrings
+        }, {
+          onConflict: 'company_id, year, month'
+        });
+
+      if (error) throw error;
+      alert('영업일수 설정이 저장되었습니다.');
+    } catch (err) {
+      console.error('Error saving config:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -66,39 +133,48 @@ const WorkingDaysPage: React.FC = () => {
           <button onClick={() => setCurrentDate(addMonths(currentDate, 1))}><ChevronRight /></button>
         </div>
 
-        <button className={styles.saveBtn} onClick={saveConfig} disabled={isSaving}>
-          <Save size={18} />
+        <button className={styles.saveBtn} onClick={saveConfig} disabled={isSaving || isLoading}>
+          {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
           {isSaving ? '저장 중...' : '설정 저장'}
         </button>
       </header>
 
       <div className={styles.mainLayout}>
         <div className={styles.calendarArea}>
-          <div className={styles.weekdayHeader}>
-            {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-              <div key={d} className={styles.weekday}>{d}</div>
-            ))}
-          </div>
-          <div className={styles.calendarGrid}>
-            {/* Blank days before the month starts */}
-            {Array.from({ length: monthStart.getDay() }).map((_, i) => (
-              <div key={`blank-${i}`} className={styles.calendarCellBlank} />
-            ))}
-            {monthDays.map(day => {
-              const weekend = isWeekend(day);
-              const holiday = holidays.some(h => isSameDay(h, day));
-              return (
-                <div 
-                  key={day.toISOString()} 
-                  className={`${styles.calendarCell} ${weekend ? styles.weekend : ''} ${holiday ? styles.holiday : ''}`}
-                  onClick={() => toggleHoliday(day)}
-                >
-                  <span className={styles.dayNum}>{day.getDate()}</span>
-                  {(weekend || holiday) && <span className={styles.holidayBadge}>{weekend ? '주말' : '공휴일'}</span>}
-                </div>
-              );
-            })}
-          </div>
+          {isLoading ? (
+            <div className={styles.loadingOverlay}>
+              <Loader2 className="animate-spin" size={40} />
+              <p>데이터를 불러오고 있습니다...</p>
+            </div>
+          ) : (
+            <>
+              <div className={styles.weekdayHeader}>
+                {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                  <div key={d} className={styles.weekday}>{d}</div>
+                ))}
+              </div>
+              <div className={styles.calendarGrid}>
+                {/* Blank days before the month starts */}
+                {Array.from({ length: monthStart.getDay() }).map((_, i) => (
+                  <div key={`blank-${i}`} className={styles.calendarCellBlank} />
+                ))}
+                {monthDays.map(day => {
+                  const weekend = isWeekend(day);
+                  const holiday = holidays.some(h => isSameDay(h, day));
+                  return (
+                    <div 
+                      key={day.toISOString()} 
+                      className={`${styles.calendarCell} ${weekend ? styles.weekend : ''} ${holiday ? styles.holiday : ''}`}
+                      onClick={() => toggleHoliday(day)}
+                    >
+                      <span className={styles.dayNum}>{day.getDate()}</span>
+                      {(weekend || holiday) && <span className={styles.holidayBadge}>{weekend ? '주말' : '공휴일'}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         <div className={styles.statsCard}>
@@ -130,3 +206,4 @@ const WorkingDaysPage: React.FC = () => {
 };
 
 export default WorkingDaysPage;
+

@@ -1,0 +1,260 @@
+.container {
+  padding: 40px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.titleArea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: #E2E8F0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listCard {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+}
+
+.inquiryList {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inquiryList th {
+  text-align: left;
+  padding: 20px;
+  background: #F8FAFC;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.inquiryList td {
+  padding: 20px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 14px;
+  color: #475569;
+}
+
+.row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.row:hover {
+  background: #F8FAFC;
+}
+
+.subject {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.statusBadge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.statusOpen {
+  background: #FEF2F2;
+  color: #ef4444;
+}
+
+.statusClosed {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.emptyState {
+  padding: 80px 0;
+  text-align: center;
+  color: #94A3B8;
+}
+
+/* Modal and Detail view */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 600px;
+  padding: 40px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+.formGroup {
+  margin-bottom: 24px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  font-size: 14px;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  min-height: 180px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.closeBtn {
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.submitBtn {
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.contentView {
+  background: #F8FAFC;
+  padding: 24px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.answerArea {
+  border-top: 2px dashed #E2E8F0;
+  padding-top: 24px;
+}
+
+.answerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #3b82f6;
+  margin-bottom: 12px;
+}
+
+.answerView {
+  background: #EFF6FF;
+  padding: 24px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e3a8a;
+}
+
+.adminAnswerInput {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  width: 100%;
+  min-height: 120px;
+  margin-bottom: 16px;
+}
+
+.animateSpin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
