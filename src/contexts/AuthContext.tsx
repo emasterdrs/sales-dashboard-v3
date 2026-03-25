@@ -69,7 +69,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) throw error;
-      setProfile(data);
+      
+      let finalProfile = data;
+
+      // [CRITICAL FIX] Force link master account to demo company if missing
+      if (finalProfile.email === 'emasterdrs@gmail.com' && !finalProfile.company_id) {
+        console.log('[AuthContext] Master account detected without company. Auto-linking...');
+        const { data: demoComp } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('name', '(주) VODA 데모')
+          .single();
+        
+        if (demoComp) {
+          finalProfile.company_id = demoComp.id;
+          // Also silently update DB for persistence
+          await supabase.from('profiles').update({ company_id: demoComp.id }).eq('id', idToFetch);
+        }
+      }
+
+      setProfile(finalProfile);
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {

@@ -13,7 +13,7 @@ interface UploadResult {
 }
 
 const DataUploadPage: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveRole, fetchProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -137,14 +137,19 @@ const DataUploadPage: React.FC = () => {
     // Re-check after potential fetch
     console.log('[Upload Debug] Current Profile:', profile);
     console.log('[Upload Debug] Company ID:', profile?.company_id);
+    console.log('[Upload Debug] Role:', effectiveRole);
 
     if (!file) {
       alert('파일을 선택해 주세요.');
       return;
     }
-    if (!profile?.company_id) {
-       console.error('[Upload Debug] Blocking upload: profile.company_id is still missing.');
-       alert('기업 정보가 확인되지 않습니다. 로그아웃 후 다시 로그인하시거나, SQL 조치가 정상적으로 완료되었는지 확인해 주세요.');
+
+    // Bypass check if Super Admin - they represent the platform anyway
+    const canUpload = profile?.company_id || effectiveRole === 'SUPER_ADMIN';
+
+    if (!canUpload) {
+       console.error('[Upload Debug] Blocking upload: profile.company_id is missing and not SUPER_ADMIN.');
+       alert('기업 정보가 확인되지 않습니다. 로그아웃 후 다시 로그인 혹은 소속 설정을 완료해 주세요.');
        return;
     }
 

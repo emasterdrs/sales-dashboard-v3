@@ -12,10 +12,12 @@ import {
   TrendingUp,
   LogOut,
   MessageSquare,
+  Database as DatabaseIcon,
 } from 'lucide-react';
 
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../api/supabase'; // Added supabase
 import styles from './Sidebar.module.css';
 
 interface SidebarItemProps {
@@ -39,20 +41,35 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
   const location = useLocation();
-    const { signOut, profile, effectiveRole, setSwitchedRole, fetchProfile } = useAuth(); // Added fetchProfile
-    const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const { signOut, profile, effectiveRole, setSwitchedRole, fetchProfile } = useAuth();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [companyName, setCompanyName] = React.useState<string>('개인/무소속');
 
-    const handleRefresh = async () => {
-      setIsRefreshing(true);
-      try {
-        await fetchProfile();
-        alert('계정 정보가 최신 상태로 동기화되었습니다.');
-      } catch (err) {
-        console.error('Failed to refresh profile:', err);
-      } finally {
-        setIsRefreshing(false);
-      }
-    };
+  React.useEffect(() => {
+    if (profile?.company_id) {
+      supabase.from('companies')
+        .select('name')
+        .eq('id', profile.company_id)
+        .single()
+        .then(({ data }) => {
+          if (data) setCompanyName(data.name);
+        });
+    } else {
+      setCompanyName('개인/무소속');
+    }
+  }, [profile?.company_id]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchProfile();
+      alert('동기화 완료!');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Define menus for each role
   const isSuper = effectiveRole === 'SUPER_ADMIN';
@@ -177,14 +194,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
           <div className={styles.userInfo}>
             <span className={styles.userName}>{profile?.nickname || '사용자'}</span>
             <div className={styles.roleRow}>
-              <span className={styles.userRole}>{getRoleLabel(effectiveRole)}</span>
+              <span className={styles.userRole}>{companyName}</span> { /* Show company name instead of role label only */}
               <button 
                 className={styles.syncBtn} 
                 onClick={handleRefresh} 
                 disabled={isRefreshing}
-                title="내 정보 동기화 (SQL 조치 후 필수)"
+                title="내 정보 동기화"
               >
-                <Database size={12} className={isRefreshing ? styles.animateSpin : ''} />
+                <DatabaseIcon size={12} className={isRefreshing ? styles.animateSpin : ''} />
               </button>
             </div>
           </div>
