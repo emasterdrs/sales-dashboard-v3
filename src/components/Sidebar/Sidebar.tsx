@@ -39,7 +39,20 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
   const location = useLocation();
-  const { signOut, profile, effectiveRole, setSwitchedRole } = useAuth();
+    const { signOut, profile, effectiveRole, setSwitchedRole, fetchProfile } = useAuth(); // Added fetchProfile
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+    const handleRefresh = async () => {
+      setIsRefreshing(true);
+      try {
+        await fetchProfile();
+        alert('계정 정보가 최신 상태로 동기화되었습니다.');
+      } catch (err) {
+        console.error('Failed to refresh profile:', err);
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
 
   // Define menus for each role
   const isSuper = effectiveRole === 'SUPER_ADMIN';
@@ -163,7 +176,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
           </div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{profile?.nickname || '사용자'}</span>
-            <span className={styles.userRole}>{getRoleLabel(effectiveRole)}</span>
+            <div className={styles.roleRow}>
+              <span className={styles.userRole}>{getRoleLabel(effectiveRole)}</span>
+              <button 
+                className={styles.syncBtn} 
+                onClick={handleRefresh} 
+                disabled={isRefreshing}
+                title="내 정보 동기화 (SQL 조치 후 필수)"
+              >
+                <Database size={12} className={isRefreshing ? styles.animateSpin : ''} />
+              </button>
+            </div>
           </div>
         </div>
         <button className={styles.logoutButton} onClick={signOut}>

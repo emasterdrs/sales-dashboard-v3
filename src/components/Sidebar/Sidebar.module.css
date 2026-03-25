@@ -135,9 +135,54 @@
 }
 
 .userRole {
-  font-size: 12px;
+  font-size: 11px;
   color: #64748B;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.roleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.syncBtn {
+  background: #E2E8F0;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.syncBtn:hover {
+  background: #CBD5E1;
+  color: #1E293B;
+  transform: rotate(30deg);
+}
+
+.syncBtn:active {
+  transform: scale(0.9);
+}
+
+.syncBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animateSpin {
+  animation: spin 1s linear infinite;
 }
 
 .logoutButton {
