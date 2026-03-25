@@ -15,7 +15,7 @@ interface Company {
 }
 
 const CompanyApprovalPage: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, effectiveRole } = useAuth(); // Added effectiveRole
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,10 +23,13 @@ const CompanyApprovalPage: React.FC = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [profile?.role]);
+  }, [effectiveRole]); // Changed from profile?.role
 
   const fetchCompanies = async () => {
-    if (profile?.role !== 'SUPER_ADMIN') return;
+    if (effectiveRole !== 'SUPER_ADMIN') {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const { data, error } = await supabase
