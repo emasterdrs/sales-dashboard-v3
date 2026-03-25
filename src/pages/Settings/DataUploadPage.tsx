@@ -128,12 +128,17 @@ const DataUploadPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const startUpload = async () => {
+    // Debug Logs for diagnosing organization issues
+    console.log('[Upload Debug] Current Profile:', profile);
+    console.log('[Upload Debug] Company ID:', profile?.company_id);
+
     if (!file) {
       alert('파일을 선택해 주세요.');
       return;
     }
     if (!profile?.company_id) {
-       alert('기업 정보가 확인되지 않습니다. 잠시 후 다시 시도해 주세요.');
+       console.error('[Upload Debug] Blocking upload: profile.company_id is missing.');
+       alert('기업 정보가 확인되지 않습니다. 소속 기업 승인 상태 혹은 계정의 소속 설정을 확인해 주세요.');
        return;
     }
 
