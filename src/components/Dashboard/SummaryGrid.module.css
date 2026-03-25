@@ -10,6 +10,47 @@
   border: 1px solid #E2E8F0;
 }
 
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 24px;
+    gap: 16px;
+    border-radius: 24px;
+  }
+  
+  .card {
+    border-right: none;
+    border-bottom: 1px solid #F1F5F9;
+    padding: 20px 10px;
+  }
+
+  .card:nth-child(even) {
+    border-left: 1px solid #F1F5F9;
+  }
+
+  .value {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr !important;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .card {
+     border-left: none !important;
+     border-right: none !important;
+     border-bottom: 1px solid #F1F5F9 !important;
+  }
+
+  .card:last-child {
+    border-bottom: none !important;
+  }
+}
+
 .card {
   display: flex;
   flex-direction: column;

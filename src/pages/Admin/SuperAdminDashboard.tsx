@@ -1,16 +1,87 @@
-import React from 'react';
-import { Users, Building2, ShieldCheck, Mail, ArrowRight, UserCircle, Settings, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Building2, ShieldCheck, Mail, ArrowRight, UserCircle, Settings, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../api/supabase';
+import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import styles from './SuperAdminDashboard.module.css';
+
+interface DashboardStats {
+    totalCompanies: number;
+    pendingCompanies: number;
+    totalUsers: number;
+    openInquiries: number;
+}
+
+interface Company {
+    id: string;
+    name: string;
+    status: string;
+    created_at: string;
+}
 
 const SuperAdminDashboard: React.FC = () => {
     const { effectiveRole, setSwitchedRole } = useAuth();
+    const navigate = useNavigate();
+    const [stats, setStats] = useState<DashboardStats>({
+        totalCompanies: 0,
+        pendingCompanies: 0,
+        totalUsers: 0,
+        openInquiries: 0
+    });
+    const [recentCompanies, setRecentCompanies] = useState<Company[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        setIsLoading(true);
+        try {
+            // Fetch Stats in parallel
+            const [
+                { count: totalCount },
+                { count: pendingCount },
+                { count: userCount },
+                { count: inquiryCount },
+                { data: recentData }
+            ] = await Promise.all([
+                supabase.from('companies').select('*', { count: 'exact', head: true }),
+                supabase.from('companies').select('*', { count: 'exact', head: true }).eq('status', 'PENDING_APPROVAL'),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                supabase.from('inquiries').select('*', { count: 'exact', head: true }).eq('status', 'OPEN'),
+                supabase.from('companies').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(5)
+            ]);
+
+            setStats({
+                totalCompanies: totalCount || 0,
+                pendingCompanies: pendingCount || 0,
+                totalUsers: userCount || 0,
+                openInquiries: inquiryCount || 0
+            });
+            setRecentCompanies(recentData || []);
+        } catch (err) {
+            console.error('Error fetching admin dashboard data:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleRoleSwitch = (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => {
         setSwitchedRole(role);
         alert(`${role || '기존'} 권한으로 전환되었습니다.`);
-        window.location.href = '/'; 
+        navigate('/', { replace: true }); 
     };
+
+    if (isLoading) {
+        return (
+            <div className={styles.loadingContainer}>
+                <Loader2 className={styles.animateSpin} size={48} />
+                <p>시스템 정보를 불러오는 중입니다...</p>
+            </div>
+        );
+    }
 
     return (
         <div className={`${styles.container} fade-in`}>
@@ -64,33 +135,33 @@ const SuperAdminDashboard: React.FC = () => {
 
             {/* Quick Stats Grid */}
             <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => navigate('/mng-voda-8a2b/companies')} style={{ cursor: 'pointer' }}>
                     <div className={styles.statHeader}>
                         <span className={styles.statLabel}>총 가입 기업</span>
                         <div className={styles.statIcon}><Building2 size={18} /></div>
                     </div>
-                    <span className={styles.statValue}>12개</span>
+                    <span className={styles.statValue}>{stats.totalCompanies}개</span>
                 </div>
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => navigate('/mng-voda-8a2b/companies')} style={{ cursor: 'pointer' }}>
                     <div className={styles.statHeader}>
                         <span className={styles.statLabel}>대기 중인 승인</span>
                         <div className={styles.statIcon}><ArrowRight size={18} /></div>
                     </div>
-                    <span className={styles.statValue} style={{ color: '#EF4444' }}>3건</span>
+                    <span className={styles.statValue} style={{ color: stats.pendingCompanies > 0 ? '#EF4444' : 'inherit' }}>{stats.pendingCompanies}건</span>
                 </div>
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => navigate('/mng-voda-8a2b/users')} style={{ cursor: 'pointer' }}>
                     <div className={styles.statHeader}>
                         <span className={styles.statLabel}>전체 활성 사용자</span>
                         <div className={styles.statIcon}><Users size={18} /></div>
                     </div>
-                    <span className={styles.statValue}>156명</span>
+                    <span className={styles.statValue}>{stats.totalUsers}명</span>
                 </div>
-                <div className={styles.statCard}>
+                <div className={styles.statCard} onClick={() => navigate('/mng-voda-8a2b/inquiries')} style={{ cursor: 'pointer' }}>
                     <div className={styles.statHeader}>
                         <span className={styles.statLabel}>미처리 문의</span>
                         <div className={styles.statIcon}><Mail size={18} /></div>
                     </div>
-                    <span className={styles.statValue}>5건</span>
+                    <span className={styles.statValue} style={{ color: stats.openInquiries > 0 ? '#F59E0B' : 'inherit' }}>{stats.openInquiries}건</span>
                 </div>
             </div>
 
@@ -103,30 +174,31 @@ const SuperAdminDashboard: React.FC = () => {
                     <thead>
                         <tr>
                             <th>기업명</th>
-                            <th>대표자</th>
                             <th>가입일</th>
                             <th>상태</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td style={{ fontWeight: 700 }}>코리아 테크놀로지</td>
-                            <td>홍길동</td>
-                            <td>2026-03-24</td>
-                            <td style={{ color: '#F59E0B', fontWeight: 700 }}>승인대기</td>
-                        </tr>
-                        <tr>
-                            <td style={{ fontWeight: 700 }}>미래 유통</td>
-                            <td>이영희</td>
-                            <td>2026-03-23</td>
-                            <td style={{ color: '#10B981', fontWeight: 700 }}>승인완료</td>
-                        </tr>
-                        <tr>
-                            <td style={{ fontWeight: 700 }}>글로벌 서비스</td>
-                            <td>김철수</td>
-                            <td>2026-03-22</td>
-                            <td style={{ color: '#10B981', fontWeight: 700 }}>승인완료</td>
-                        </tr>
+                        {recentCompanies.map(comp => (
+                            <tr key={comp.id}>
+                                <td style={{ fontWeight: 700 }}>{comp.name}</td>
+                                <td>{format(new Date(comp.created_at), 'yyyy-MM-dd')}</td>
+                                <td>
+                                    <span className={comp.status === 'APPROVED' ? styles.statusApproved : styles.statusPending}>
+                                        {comp.status === 'APPROVED' ? '승인완료' : '승인대기'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button className={styles.tableActionBtn} onClick={() => navigate('/mng-voda-8a2b/companies')}>관리</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {recentCompanies.length === 0 && (
+                            <tr>
+                                <td colSpan={4} style={{ textAlign: 'center', padding: '32px', color: '#94A3B8' }}>가입 기록이 없습니다.</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

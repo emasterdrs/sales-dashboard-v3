@@ -1,0 +1,284 @@
+.container {
+  padding: 40px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.titleArea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: #1a1a1a;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.backBtn {
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+
+.backBtn:hover {
+  background: #F8FAFC;
+  color: #1a1a1a;
+  border-color: #1a1a1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.searchBar input {
+  flex: 1;
+  border: none;
+  font-size: 14px;
+  outline: none;
+}
+
+.statsSummary {
+  font-size: 14px;
+  color: #64748B;
+}
+
+.statsSummary strong {
+  color: #1a1a1a;
+  font-weight: 800;
+}
+
+.card {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 20px;
+  background: #F8FAFC;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.table td {
+  padding: 20px;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 14px;
+  color: #475569;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background: #1a1a1a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.userName {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.userEmail {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.companyInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748B;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.noCompany {
+  color: #CBD5E0;
+  font-style: italic;
+}
+
+.roleBadge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.super {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+.company {
+  background: #EFF6FF;
+  color: #3B82F6;
+}
+
+.user {
+  background: #F8FAFC;
+  color: #64748B;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.active {
+  background: #10B981;
+}
+
+.inactive {
+  background: #EF4444;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.roleSelect {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  outline: none;
+  cursor: pointer;
+  background: white;
+}
+
+.actionBtn {
+  border: none;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.activeBtn {
+  background: #10B981;
+  color: white;
+}
+
+.suspendBtn {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+.actionBtn:hover {
+  transform: translateY(-1px);
+}
+
+.loadingArea {
+  padding: 100px 0;
+  text-align: center;
+  color: #94A3B8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 24px;
+    margin-top: 64px; /* Space for mobile header */
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .searchBar {
+    max-width: 100%;
+  }
+
+  .card {
+     overflow-x: auto;
+  }
+
+  .table {
+    min-width: 900px;
+  }
+}

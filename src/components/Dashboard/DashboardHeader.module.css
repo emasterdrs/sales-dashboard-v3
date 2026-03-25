@@ -5,6 +5,54 @@
   margin-bottom: 40px;
 }
 
+@media (max-width: 1024px) {
+  .header {
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .titleSection {
+    gap: 16px;
+  }
+
+  .mainTitle {
+    font-size: 24px;
+  }
+
+  .subTitle {
+    font-size: 16px;
+  }
+
+  .titleIcon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+
+  .statsSection {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .controlPanel {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .statsPanel {
+    width: 100%;
+  }
+
+  .toggleWrapper {
+    justify-content: space-between;
+  }
+}
+
 .titleSection {
   display: flex;
   gap: 24px;

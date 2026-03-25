@@ -2,19 +2,93 @@
   display: flex;
   min-height: 100vh;
   background: #F8FAFC;
+  flex-direction: row;
+}
+
+.sidebarWrapper {
+  width: 280px;
+  flex-shrink: 0;
 }
 
 .content {
   flex: 1;
-  margin-left: 280px; /* Same as sidebar width */
   padding: 40px;
   max-width: 1600px;
   margin-right: auto;
-  transition: all 0.3s ease;
+  min-width: 0; /* Important for flex child to shrink */
+}
+
+/* Mobile Header (Hidden by default) */
+.mobileHeader {
+  display: none;
+  height: 64px;
+  background: white;
+  border-bottom: 1px solid #E2E8F0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+}
+
+.menuButton {
+  background: none;
+  border: none;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.mobileLogo {
+  font-weight: 800;
+  font-size: 18px;
+  color: #FFCA28;
 }
 
 @media (max-width: 1024px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebarWrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1002;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    width: 280px;
+    background: white;
+  }
+
+  .sidebarWrapper.show {
+    transform: translateX(0);
+  }
+
   .content {
-    padding: 24px;
+    margin-left: 0;
+    padding: 88px 16px 40px; /* Space for mobile header */
+  }
+
+  .mobileHeader {
+    display: flex;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    z-index: 1001;
   }
 }

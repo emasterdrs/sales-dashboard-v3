@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Check, Loader2, Search } from 'lucide-react';
+import { Building2, Check, Loader2, Search, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import styles from './CompanyApprovalPage.module.css';
 
@@ -15,6 +16,7 @@ interface Company {
 
 const CompanyApprovalPage: React.FC = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,13 +60,16 @@ const CompanyApprovalPage: React.FC = () => {
 
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.business_number.includes(searchTerm)
+    (c.business_number && c.business_number.includes(searchTerm))
   );
 
   return (
     <div className={`${styles.container} fade-in`}>
       <header className={styles.header}>
         <div className={styles.titleArea}>
+          <button className={styles.backBtn} onClick={() => navigate(-1)}>
+            <ArrowLeft size={20} />
+          </button>
           <div className={styles.iconWrapper}><Building2 size={28} /></div>
           <div>
             <h1 className={styles.title}>가입 기업 관리</h1>

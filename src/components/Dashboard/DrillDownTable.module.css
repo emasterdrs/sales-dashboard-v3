@@ -5,6 +5,36 @@
   padding: 32px;
   border: 1px solid #E2E8F0;
   margin-top: 24px;
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .tableHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .breadcrumbWrapper {
+    margin-left: 0;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .cell {
+    padding: 16px;
+    font-size: 14px;
+  }
+
+  .mainTable {
+    min-width: 800px;
+  }
 }
 
 .tableHeader {

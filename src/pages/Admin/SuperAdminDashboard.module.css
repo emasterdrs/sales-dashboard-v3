@@ -187,3 +187,106 @@
   border-bottom: 1px solid #F1F5F9;
   font-size: 14px;
 }
+
+.statusApproved {
+  background: #DCFCE7;
+  color: #166534;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statusPending {
+  background: #FFF7ED;
+  color: #9A3412;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tableActionBtn {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+}
+
+.tableActionBtn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.loadingContainer {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.animateSpin {
+  animation: spin 1s linear infinite;
+  color: #1a1a1a;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .container {
+    padding: 24px;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .roleGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tableCard {
+    margin: 0 -16px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    overflow-x: auto;
+  }
+
+  .recentTable {
+    min-width: 600px;
+  }
+
+  .header {
+    margin-bottom: 24px;
+  }
+
+  .switcherSection {
+    padding: 20px;
+    border-radius: 16px;
+  }
+}

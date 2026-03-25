@@ -23,16 +23,21 @@ interface SidebarItemProps {
   label: string;
   path: string;
   isActive: boolean;
+  onClick?: () => void;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, path, isActive }) => (
-  <Link to={path} className={`${styles.sidebarItem} ${isActive ? styles.active : ''}`}>
+const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, path, isActive, onClick }) => (
+  <Link to={path} className={`${styles.sidebarItem} ${isActive ? styles.active : ''}`} onClick={onClick}>
     <Icon className={styles.sidebarIcon} size={20} />
     <span>{label}</span>
   </Link>
 );
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onPathChange?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
   const location = useLocation();
   const { signOut, profile, effectiveRole, setSwitchedRole } = useAuth();
 
@@ -81,14 +86,15 @@ const Sidebar: React.FC = () => {
 
   // 3. Super Admin Menus
   if (isSuper) {
-    menuSections.push({
-      title: "시스템 관리 (VODA)",
-      items: [
-        { icon: LayoutDashboard, label: "관리자 홈", path: "/mng-voda-8a2b" },
-        { icon: Building2, label: "가입 기업 관리", path: "/mng-voda-8a2b/companies" },
-        { icon: MessageSquare, label: "전체 문의 확인", path: "/mng-voda-8a2b/inquiries" },
-      ]
-    });
+      menuSections.push({
+        title: "시스템 관리 (VODA)",
+        items: [
+          { icon: LayoutDashboard, label: "관리자 홈", path: "/mng-voda-8a2b" },
+          { icon: Building2, label: "가입 기업 관리", path: "/mng-voda-8a2b/companies" },
+          { icon: Users, label: "사용자 통합 관리", path: "/mng-voda-8a2b/users" },
+          { icon: MessageSquare, label: "전체 문의 확인", path: "/mng-voda-8a2b/inquiries" },
+        ]
+      });
   }
 
   const getRoleLabel = (role: string | null) => {
@@ -143,6 +149,7 @@ const Sidebar: React.FC = () => {
                 label={item.label}
                 path={item.path}
                 isActive={location.pathname === item.path}
+                onClick={onPathChange}
               />
             ))}
           </div>

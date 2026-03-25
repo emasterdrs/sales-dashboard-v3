@@ -12,6 +12,7 @@ import DataUploadPage from './pages/Settings/DataUploadPage';
 import TargetManagementPage from './pages/Settings/TargetManagementPage';
 import InquiryPage from './pages/Support/InquiryPage';
 import CompanyApprovalPage from './pages/Admin/CompanyApprovalPage';
+import UserManagementPage from './pages/Admin/UserManagementPage';
 import SuperAdminDashboard from './pages/Admin/SuperAdminDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './index.css';
@@ -79,6 +80,7 @@ const AuthWrapper: React.FC = () => {
       
       {/* Admin Routes (Obfuscated) */}
       <Route path="/mng-voda-8a2b/companies" element={<ProtectedRoute><CompanyApprovalPage /></ProtectedRoute>} />
+      <Route path="/mng-voda-8a2b/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
       <Route path="/mng-voda-8a2b/inquiries" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />
       
       <Route path="*" element={<Navigate to="/" replace />} />
