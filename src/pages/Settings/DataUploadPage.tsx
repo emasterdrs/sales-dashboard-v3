@@ -168,9 +168,13 @@ const DataUploadPage: React.FC = () => {
 
       const errors: string[] = [];
       const validRecords: any[] = [];
-      const currentCompanyId = profile.company_id;
+      const currentCompanyId = profile?.company_id;
 
-      // 1. Pre-fetch real category mapping if category_id in CSV are names or placeholders
+      if (!currentCompanyId && effectiveRole !== 'SUPER_ADMIN') {
+        setIsUploading(false);
+        alert('소속 기업 정보를 확인할 수 없습니다.');
+        return;
+      }
       const { data: realCats } = await supabase.from('product_categories').select('id, name').eq('company_id', currentCompanyId);
       const catNameMap: Record<string, string> = {};
       (realCats || []).forEach(c => { catNameMap[c.name] = c.id; });
