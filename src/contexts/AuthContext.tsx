@@ -20,6 +20,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   effectiveRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null;
   setSwitchedRole: (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => void;
+  fetchProfile: () => Promise<void>; // Added fetchProfile
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,12 +57,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId?: string) => {
+    const idToFetch = userId || user?.id;
+    if (!idToFetch) return;
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', idToFetch)
         .single();
       
       if (error) throw error;
@@ -128,7 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin, 
       isSuperAdmin,
       effectiveRole: effectiveRole || null,
-      setSwitchedRole: handleSetSwitchedRole
+      setSwitchedRole: handleSetSwitchedRole,
+      fetchProfile: () => fetchProfile() // Exposed fetchProfile
     }}>
       {children}
     </AuthContext.Provider>

@@ -128,7 +128,13 @@ const DataUploadPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const startUpload = async () => {
-    // Debug Logs for diagnosing organization issues
+    // 1. If company_id is missing, try to re-fetch profile first to handle stale state
+    if (!profile?.company_id && fetchProfile) {
+      console.log('[Upload Debug] Company ID missing, attempting to re-fetch profile...');
+      await fetchProfile();
+    }
+
+    // Re-check after potential fetch
     console.log('[Upload Debug] Current Profile:', profile);
     console.log('[Upload Debug] Company ID:', profile?.company_id);
 
@@ -137,8 +143,8 @@ const DataUploadPage: React.FC = () => {
       return;
     }
     if (!profile?.company_id) {
-       console.error('[Upload Debug] Blocking upload: profile.company_id is missing.');
-       alert('기업 정보가 확인되지 않습니다. 소속 기업 승인 상태 혹은 계정의 소속 설정을 확인해 주세요.');
+       console.error('[Upload Debug] Blocking upload: profile.company_id is still missing.');
+       alert('기업 정보가 확인되지 않습니다. 로그아웃 후 다시 로그인하시거나, SQL 조치가 정상적으로 완료되었는지 확인해 주세요.');
        return;
     }
 
