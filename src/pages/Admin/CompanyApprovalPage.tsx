@@ -10,7 +10,7 @@ interface Company {
   id: string;
   name: string;
   business_number: string;
-  is_approved: boolean;
+  status: string; // Changed from is_approved: boolean
   created_at: string;
 }
 
@@ -31,7 +31,7 @@ const CompanyApprovalPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('companies')
-        .select('*')
+        .select('id, name, business_number, status, created_at')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -43,18 +43,22 @@ const CompanyApprovalPage: React.FC = () => {
     }
   };
 
-  const handleApprove = async (id: string, approved: boolean) => {
+  const handleApprove = async (id: string, newStatus: string) => {
     try {
+      // Update both column 'status' (new) and 'is_approved' (legacy) for full compatibility
       const { error } = await supabase
         .from('companies')
-        .update({ is_approved: approved })
+        .update({ 
+          status: newStatus,
+          is_approved: newStatus === 'APPROVED' 
+        })
         .eq('id', id);
       
       if (error) throw error;
-      setCompanies(prev => prev.map(c => c.id === id ? { ...c, is_approved: approved } : c));
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } catch (err) {
       console.error('Error updating company status:', err);
-      alert('상태 변경 중 오류가 발생했습니다.');
+      alert('상태 변경 중 오류가 발생했습니다. RLS 정책을 확인해 주세요.');
     }
   };
 
@@ -109,18 +113,18 @@ const CompanyApprovalPage: React.FC = () => {
               {filteredCompanies.map(c => (
                 <tr key={c.id}>
                   <td className={styles.companyName}>{c.name}</td>
-                  <td>{c.business_number}</td>
+                  <td>{c.business_number || '정보없음'}</td>
                   <td>{format(new Date(c.created_at), 'yyyy-MM-dd')}</td>
                   <td>
-                    <span className={`${styles.badge} ${c.is_approved ? styles.approved : styles.pending}`}>
-                      {c.is_approved ? '승인됨' : '대기중'}
+                    <span className={`${styles.badge} ${c.status === 'APPROVED' ? styles.approved : styles.pending}`}>
+                      {c.status === 'APPROVED' ? '승인완료' : '대기중'}
                     </span>
                   </td>
                   <td>
-                    {c.is_approved ? (
-                      <button className={styles.revokeBtn} onClick={() => handleApprove(c.id, false)}>승인 취소</button>
+                    {c.status === 'APPROVED' ? (
+                      <button className={styles.revokeBtn} onClick={() => handleApprove(c.id, 'PENDING_APPROVAL')}>승인 취소</button>
                     ) : (
-                      <button className={styles.approveBtn} onClick={() => handleApprove(c.id, true)}>
+                      <button className={styles.approveBtn} onClick={() => handleApprove(c.id, 'APPROVED')}>
                         <Check size={14} /> 승인하기
                       </button>
                     )}
