@@ -27,12 +27,17 @@ interface SummaryGridProps {
   unit: string;
   isExpected?: boolean;
   isWarning?: boolean;
+  labelOverrides?: {
+    goal?: string;
+    achievementRate?: string;
+    progressGap?: string;
+  };
 }
 
-const SummaryGrid: React.FC<SummaryGridProps> = ({ goal, performance, achievementRate, progressGap, unit, isExpected, isWarning }) => {
+const SummaryGrid: React.FC<SummaryGridProps> = ({ goal, performance, achievementRate, progressGap, unit, isExpected, isWarning, labelOverrides }) => {
   return (
     <div className={styles.grid}>
-      <SummaryCard label="목표" value={goal} unit={unit} />
+      <SummaryCard label={labelOverrides?.goal || "목표"} value={goal} unit={unit} />
       <SummaryCard 
         label={isExpected ? "예상 마감 실적" : "실적"} 
         value={performance} 
@@ -41,13 +46,13 @@ const SummaryGrid: React.FC<SummaryGridProps> = ({ goal, performance, achievemen
         isWarning={isWarning}
       />
       <SummaryCard 
-        label={isExpected ? "최종 달성률(예측)" : "현재 달성률"} 
+        label={isExpected ? "최종 달성률(예측)" : (labelOverrides?.achievementRate || "현재 달성률")} 
         value={achievementRate} 
         unit="%" 
         isWarning={isWarning}
       />
       <SummaryCard 
-        label={isExpected ? "최종 과부족(예측)" : "진도율 GAP"} 
+        label={isExpected ? "최종 과부족(예측)" : (labelOverrides?.progressGap || "진도율 GAP")} 
         value={`${progressGap}`} 
         unit={unit} 
         type={isWarning ? 'danger' : 'success'} 

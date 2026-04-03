@@ -37,6 +37,7 @@ const DashboardPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isTypeMode = location.pathname.startsWith('/type');
+  const isYoyMode = location.pathname.endsWith('/yoy');
 
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -117,6 +118,17 @@ const DashboardPage: React.FC = () => {
     return all;
   };
 
+  const fetchTargets = async (entityType: string, ids: string[], groupType: string, filterCol?: string, filterVal?: string) => {
+    if (!profile?.company_id) return [];
+    if (isYoyMode) {
+      const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+      const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+      const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: groupType, p_filter_col: filterCol, p_filter_val: filterVal });
+      return (lyPerf || []).map((p: any) => ({ entity_id: p.id, target_amount: parseNum(p.total) }));
+    }
+    return ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', entityType).eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+  };
+
   const initDashboard = async () => {
     if (!profile?.company_id) return;
     setIsLoading(true);
@@ -138,12 +150,20 @@ const DashboardPage: React.FC = () => {
         totalPerf = parseNum(sumData?.[0]?.total || 0);
       }
 
-      const targets = await fetchAll(supabase.from('sales_targets')
-        .select('target_amount')
-        .eq('company_id', profile.company_id)
-        .eq('entity_type', isTypeMode ? 'CATEGORY' : 'DIVISION')
-        .eq('year', year)
-        .eq('month', month));
+      let targets: any[] = [];
+      if (isYoyMode) {
+        const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+        const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+        const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'total' });
+        targets = [{ target_amount: parseNum(lyPerf?.[0]?.total || 0) }];
+      } else {
+        targets = await fetchAll(supabase.from('sales_targets')
+          .select('target_amount')
+          .eq('company_id', profile.company_id)
+          .eq('entity_type', isTypeMode ? 'CATEGORY' : 'DIVISION')
+          .eq('year', year)
+          .eq('month', month));
+      }
 
       const totalGoal = (targets || []).reduce((acc: any, t: any) => acc + parseNum(t.target_amount), 0);
       
@@ -205,7 +225,7 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (divisions || []).map(d => d.id);
-          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const targets = await fetchTargets('DIVISION', ids, 'division_id');
           
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'division_id' });
           const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
@@ -235,7 +255,7 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 1 && selectedIds.divisionId) {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
           const ids = (teams || []).map(t => t.id);
-          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const targets = await fetchTargets('TEAM', ids, 'team_id');
           
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'team_id' });
           const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
@@ -258,7 +278,7 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 2 && selectedIds.teamId) {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
           const ids = (staff || []).map(s => s.id);
-          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const targets = await fetchTargets('STAFF', ids, 'staff_id', 'team_id', selectedIds.teamId);
           
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'staff_id', p_filter_col: 'team_id', p_filter_val: selectedIds.teamId });
           const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
@@ -291,7 +311,7 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (cats || []).map(c => c.id);
-          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const targets = await fetchTargets('CATEGORY', ids, 'category_id');
           
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'category_id' });
           const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
@@ -361,10 +381,10 @@ const DashboardPage: React.FC = () => {
 
   const columns = [
     { key: 'name', label: getLabelByLevel(currentLevel), width: '30%' },
-    { key: 'goal', label: '목표', width: '15%' },
+    { key: 'goal', label: isYoyMode ? '전년 동월' : '목표', width: '15%' },
     { key: 'performance', label: '실적', width: '15%' },
-    { key: 'achieve', label: '달성률', width: '15%' },
-    { key: 'gap', label: '진도율 GAP', width: '15%' },
+    { key: 'achieve', label: isYoyMode ? '전년대비(% )' : '달성률', width: '15%' },
+    { key: 'gap', label: isYoyMode ? '전년대비(액)' : '진도율 GAP', width: '15%' },
   ];
 
   const handleRowClick = (id: string, name: string) => {
@@ -537,13 +557,14 @@ const DashboardPage: React.FC = () => {
               : summaryData.achievementRate
             }
             progressGap={isExpectedClosingOn
-              ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '-') + 
-                 formatValue(Math.abs(((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
+              ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '') + 
+                 formatValue((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
               : summaryData.progressGap
             }
             unit={getUnitName()}
             isExpected={isExpectedClosingOn}
             isWarning={isExpectedClosingOn && ((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) < summaryData.originalGoalVal}
+            labelOverrides={isYoyMode ? { goal: '전년 동월', achievementRate: '전년대비', progressGap: '전년대비(액)' } : undefined}
           />
         </div>
 
