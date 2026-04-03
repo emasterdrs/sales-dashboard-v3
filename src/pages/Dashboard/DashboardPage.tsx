@@ -42,7 +42,14 @@ const DashboardPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<{ teamId?: string; staffId?: string; customerName?: string; categoryId?: string }>({});
 
   const [workingDays, setWorkingDays] = useState({ total: 21, current: 13 });
-  const [summaryData, setSummaryData] = useState({ goal: '0.0', performance: '0.0', achievementRate: '0.0', progressGap: '0.0' });
+  const [summaryData, setSummaryData] = useState({ 
+    goal: '0.0', 
+    performance: '0.0', 
+    achievementRate: '0.0', 
+    progressGap: '0.0',
+    originalGoalVal: 0,
+    originalPerfVal: 0 
+  });
   const [displayData, setDisplayData] = useState<DashboardData[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
 
@@ -124,7 +131,9 @@ const DashboardPage: React.FC = () => {
         goal: formatValue(totalGoal),
         performance: formatValue(totalPerf),
         achievementRate: achievement.toFixed(1),
-        progressGap: (gapValue >= 0 ? '+' : '') + formatValue(gapValue)
+        progressGap: (gapValue >= 0 ? '+' : '') + formatValue(gapValue),
+        originalGoalVal: totalGoal,
+        originalPerfVal: totalPerf
       });
 
       // 3. Monthly Trend Data (This Year)
@@ -431,10 +440,19 @@ const DashboardPage: React.FC = () => {
 
       <SummaryGrid 
         goal={summaryData.goal}
-        performance={summaryData.performance}
-        achievementRate={summaryData.achievementRate}
-        progressGap={summaryData.progressGap}
+        performance={isExpectedClosingOn ? formatValue((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) : summaryData.performance}
+        achievementRate={isExpectedClosingOn 
+          ? (((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) / (summaryData.originalGoalVal || 1) * 100).toFixed(1)
+          : summaryData.achievementRate
+        }
+        progressGap={isExpectedClosingOn
+          ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '-') + 
+             formatValue(Math.abs(((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
+          : summaryData.progressGap
+        }
         unit={getUnitName()}
+        isExpected={isExpectedClosingOn}
+        isWarning={isExpectedClosingOn && ((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) < summaryData.originalGoalVal}
       />
 
       <DrillDownTable 
