@@ -102,6 +102,20 @@ const DashboardPage: React.FC = () => {
     return '원';
   };
 
+  const fetchAll = async (query: any) => {
+    let all: any[] = [];
+    let from = 0;
+    const step = 1000;
+    while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) { console.error('fetchAll Error:', error); break; }
+        if (!data || data.length === 0) break;
+        all = [...all, ...data];
+        if (data.length < step) break;
+    }
+    return all;
+  };
+
   const initDashboard = async () => {
     if (!profile?.company_id) return;
     setIsLoading(true);
@@ -112,7 +126,7 @@ const DashboardPage: React.FC = () => {
       const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
       const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
       
-      const { data: records } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+      const records = await fetchAll(supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
       
       let filteredRecords = records || [];
       if (isTypeMode) {
@@ -121,12 +135,12 @@ const DashboardPage: React.FC = () => {
         filteredRecords = filteredRecords.filter(r => r.category_id && validCatIds.includes(r.category_id));
       }
 
-      const { data: targets } = await supabase.from('sales_targets')
+      const targets = await fetchAll(supabase.from('sales_targets')
         .select('target_amount')
         .eq('company_id', profile.company_id)
         .eq('entity_type', isTypeMode ? 'CATEGORY' : 'DIVISION')
         .eq('year', year)
-        .eq('month', month);
+        .eq('month', month));
 
       const totalPerf = filteredRecords.reduce((acc, r) => acc + parseNum(r.amount), 0);
       const totalGoal = (targets || []).reduce((acc, t) => acc + parseNum(t.target_amount), 0);
@@ -146,7 +160,7 @@ const DashboardPage: React.FC = () => {
 
       const yearStart = `${year}-01-01`;
       const yearEnd = `${year}-12-31`;
-      const { data: yearPerf } = await supabase.from('sales_records').select('amount, sales_date, category_id').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd);
+      const yearPerf = await fetchAll(supabase.from('sales_records').select('amount, sales_date, category_id').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd));
       
       let trendRecs = yearPerf || [];
       if (isTypeMode) {
@@ -183,8 +197,8 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (divisions || []).map(d => d.id);
-          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const perf = await fetchAll(supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
           const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
 
           data = (divisions || []).map(d => {
@@ -213,8 +227,8 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 1 && selectedIds.divisionId) {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
           const ids = (teams || []).map(t => t.id);
-          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const perf = await fetchAll(supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
 
           data = (teams || []).map(t => {
             const teamTarget = parseNum((targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0);
@@ -234,8 +248,8 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 2 && selectedIds.teamId) {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
           const ids = (staff || []).map(s => s.id);
-          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
 
           data = (staff || []).map(s => {
             const staffTarget = parseNum((targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0);
@@ -253,13 +267,13 @@ const DashboardPage: React.FC = () => {
           });
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
-          const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate).lte('sales_date', endDate);
+          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate).lte('sales_date', endDate));
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
-          const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
+          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate));
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
@@ -269,8 +283,8 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (cats || []).map(c => c.id);
-          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
+          const perf = await fetchAll(supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
 
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
             const target = parseNum((targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0);
@@ -289,14 +303,14 @@ const DashboardPage: React.FC = () => {
           });
         }
         else if (currentLevel === 1 && selectedIds.categoryId) {
-          const { data: perf } = await supabase.from('sales_records').select('amount, staff_id').eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
+          const perf = await fetchAll(supabase.from('sales_records').select('amount, staff_id').eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate));
           const { data: staffList } = await supabase.from('sales_staff').select('id, name').order('display_order', { ascending: true });
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.staff_id, (map.get(p.staff_id) || 0) + parseNum(p.amount)));
           data = (staffList || []).filter(s => map.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(map.get(s.id) || 0), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 2 && selectedIds.staffId && selectedIds.categoryId) {
-          const { data: perf } = await supabase.from('sales_records').select('amount, customer_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
+          const perf = await fetchAll(supabase.from('sales_records').select('amount, customer_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate));
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
