@@ -79,13 +79,14 @@ const DataUploadPage: React.FC = () => {
         amountStr: String(row[6] || '').trim(),
         categoryName: String(row[7] || '').trim()
       };
-    }).filter(r => r && (r.divisionName || r.name));
+    }).filter((r): r is any => r !== null);
   };
 
   const startUpload = async () => {
     if (!profile?.company_id && fetchProfile) await fetchProfile();
+    const companyId = profile?.company_id;
     if (!file) return alert('파일을 선택해 주세요.');
-    if (!profile?.company_id) return alert('기업 정보가 없습니다.');
+    if (!companyId) return alert('기업 정보가 없습니다.');
 
     setIsUploading(true);
     setResult(null);
@@ -106,12 +107,12 @@ const DataUploadPage: React.FC = () => {
       const uniqDivs = [...new Set(rows.map(r => r.divisionName).filter(Boolean))];
       for (const dName of uniqDivs) {
           if (!local.divisions[dName]) {
-              const { data: created, error } = await supabase.from('sales_divisions').insert({ company_id: profile.company_id, name: dName, display_order: 0 }).select().maybeSingle();
+              const { data: created, error: iErr } = await supabase.from('sales_divisions').insert({ company_id: companyId, name: dName, display_order: 0 }).select().maybeSingle();
               if (created) local.divisions[dName] = created.id;
               else {
-                  const { data: exs } = await supabase.from('sales_divisions').select('id').eq('company_id', profile.company_id).eq('name', dName).maybeSingle();
+                  const { data: exs } = await supabase.from('sales_divisions').select('id').eq('company_id', companyId).eq('name', dName).maybeSingle();
                   if (exs) local.divisions[dName] = exs.id;
-                  else errList.push(`사업부 가입 실패: ${dName} ${error?.message || ''}`);
+                  else errList.push(`사업부 가입 실패: ${dName} ${iErr?.message || ''}`);
               }
           }
       }
@@ -123,12 +124,12 @@ const DataUploadPage: React.FC = () => {
           const [dName, tName] = tKey.split('||');
           const dId = local.divisions[dName];
           if (dId && !local.teamMap[`${dId}_${tName}`]) {
-              const { data: created, error } = await supabase.from('sales_teams').insert({ company_id: profile.company_id, division_id: dId, name: tName }).select().maybeSingle();
+              const { data: created, error: tErr } = await supabase.from('sales_teams').insert({ company_id: companyId, division_id: dId, name: tName }).select().maybeSingle();
               if (created) local.teamMap[`${dId}_${tName}`] = created.id;
               else {
                   const { data: exs } = await supabase.from('sales_teams').select('id').eq('division_id', dId).eq('name', tName).maybeSingle();
                   if (exs) local.teamMap[`${dId}_${tName}`] = exs.id;
-                  else errList.push(`팀 가입 실패: ${tName} ${error?.message || ''}`);
+                  else errList.push(`팀 가입 실패: ${tName} ${tErr?.message || ''}`);
               }
           }
       }
@@ -141,12 +142,12 @@ const DataUploadPage: React.FC = () => {
           const dId = local.divisions[dName];
           const tId = dId ? local.teamMap[`${dId}_${tName}`] : null;
           if (tId && !local.staffMap[`${tId}_${sName}`]) {
-              const { data: created, error } = await supabase.from('sales_staff').insert({ team_id: tId, name: sName }).select().maybeSingle();
+              const { data: created, error: sErr } = await supabase.from('sales_staff').insert({ team_id: tId, name: sName }).select().maybeSingle();
               if (created) local.staffMap[`${tId}_${sName}`] = created.id;
               else {
                   const { data: exs } = await supabase.from('sales_staff').select('id').eq('team_id', tId).eq('name', sName).maybeSingle();
                   if (exs) local.staffMap[`${tId}_${sName}`] = exs.id;
-                  else errList.push(`사원 가입 실패: ${sName} ${error?.message || ''}`);
+                  else errList.push(`사원 가입 실패: ${sName} ${sErr?.message || ''}`);
               }
           }
       }
@@ -156,10 +157,10 @@ const DataUploadPage: React.FC = () => {
       const uniqCats = [...new Set(rows.map(r => r.categoryName).filter(Boolean))];
       for (const cName of uniqCats) {
           if (!local.catMap[cName]) {
-              const { data: created } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: cName }).select().maybeSingle();
+              const { data: created } = await supabase.from('product_categories').insert({ company_id: companyId, name: cName }).select().maybeSingle();
               if (created) local.catMap[cName] = created.id;
               else {
-                  const { data: exs } = await supabase.from('product_categories').select('id').eq('company_id', profile.company_id).eq('name', cName).maybeSingle();
+                  const { data: exs } = await supabase.from('product_categories').select('id').eq('company_id', companyId).eq('name', cName).maybeSingle();
                   if (exs) local.catMap[cName] = exs.id;
               }
           }
@@ -172,7 +173,7 @@ const DataUploadPage: React.FC = () => {
       rows.forEach(r => {
           const dId = local.divisions[r.divisionName];
           const tId = dId ? local.teamMap[`${dId}_${r.teamName}`] : null;
-          const sId = tId ? local.staffMap[`${tId}_${r.name}`] : null;
+          const sId = tId ? local.staffMap[`${tId}_${sName}`] : null;
           const cId = local.catMap[r.categoryName] || fallbackCat;
           if (!r.date) { errList.push(`${r._rowIndex}행: 날짜 파생 오류 (${r.rawDate})`); return; }
           if (!dId || !tId || !sId) {
@@ -180,42 +181,43 @@ const DataUploadPage: React.FC = () => {
               return;
           }
           const amt = Math.abs(parseInt(r.amountStr.replace(/[^0-9-]/g, ''))) || 0;
-          finalRecs.push({ company_id: profile.company_id, staff_id: sId, team_id: tId, category_id: cId || null, customer_name: r.customer || '미지정', item_name: r.item || '미지정', amount: amt, sales_date: r.date });
+          finalRecs.push({ company_id: companyId, staff_id: sId, team_id: tId, category_id: cId || null, customer_name: r.customer || '미지정', item_name: r.item || '미지정', amount: amt, sales_date: r.date });
       });
 
       setOrgMap(local);
-      let success = 0;
+      let successCount = 0;
       const CHUNK = 500;
       for (let i = 0; i < finalRecs.length; i += CHUNK) {
           const chunk = finalRecs.slice(i, i + CHUNK);
-          const { error } = await supabase.from('sales_records').upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-          if (error) errList.push(`저장 실패: ${error.message} (청크 ${i/CHUNK + 1})`);
-          else success += chunk.length;
+          const { error: uErr } = await supabase.from('sales_records').upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
+          if (uErr) errList.push(`저장 실패: ${uErr.message} (청크 ${i/CHUNK + 1})`);
+          else successCount += chunk.length;
           setUploadProgress(45 + Math.round(((i + CHUNK) / finalRecs.length) * 55));
       }
 
-      setResult({ total: rows.length, success, failed: rows.length - success, errors: errList });
-      if (success > 0) setFile(null);
+      setResult({ total: rows.length, success: successCount, failed: rows.length - successCount, errors: errList });
+      if (successCount > 0) setFile(null);
     } catch (e: any) { alert(`오류 발생: ${e.message}`); } finally { setIsUploading(false); setUploadProgress(100); }
   };
 
   const handleReset = async () => {
-    if (!profile?.company_id || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인 필요');
+    const companyId = profile?.company_id;
+    if (!companyId || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인 필요');
     setIsResetting(true);
     try {
       if (resetType === 'data') {
-          await supabase.from('sales_records').delete().eq('company_id', profile.company_id);
-          await supabase.from('sales_targets').delete().eq('company_id', profile.company_id);
+          await supabase.from('sales_records').delete().eq('company_id', companyId);
+          await supabase.from('sales_targets').delete().eq('company_id', companyId);
           alert('영업 데이터 초기화 완료');
       } else {
-          await supabase.from('sales_records').delete().eq('company_id', profile.company_id);
-          await supabase.from('sales_targets').delete().eq('company_id', profile.company_id);
-          const { data: teams } = await supabase.from('sales_teams').select('id').eq('company_id', profile.company_id);
+          await supabase.from('sales_records').delete().eq('company_id', companyId);
+          await supabase.from('sales_targets').delete().eq('company_id', companyId);
+          const { data: teams } = await supabase.from('sales_teams').select('id').eq('company_id', companyId);
           const tIds = teams?.map(t => t.id) || [];
           if (tIds.length > 0) await supabase.from('sales_staff').delete().in('team_id', tIds);
-          await supabase.from('sales_teams').delete().eq('company_id', profile.company_id);
-          await supabase.from('sales_divisions').delete().eq('company_id', profile.company_id);
-          await supabase.from('product_categories').delete().eq('company_id', profile.company_id);
+          await supabase.from('sales_teams').delete().eq('company_id', companyId);
+          await supabase.from('sales_divisions').delete().eq('company_id', companyId);
+          await supabase.from('product_categories').delete().eq('company_id', companyId);
           alert('전체 조직 및 데이터 공장 초기화 완료');
           fetchOrgInfo();
       }
@@ -242,8 +244,8 @@ const DataUploadPage: React.FC = () => {
         <div className={styles.instructions}>
           <h3 className={styles.instructionTitle}>⚡ 스마트 데이터 처리 안내</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>v2.3 Core:</b> 조직 자동 생성 및 실시간 매핑 엔진이 가동 중입니다.</li>
-            <li className={styles.instructionItem}><b>실패 시 가이드:</b> 하단 <b>'실패 사유'</b> 영역을 통해 어떤 데이터에 문제가 있는지 확인할 수 있습니다.</li>
+            <li className={styles.instructionItem}><b>v2.3 Stable:</b> 초대형 데이터 매핑 엔진이 가동 중입니다.</li>
+            <li className={styles.instructionItem}><b>오류 분석:</b> 하단 <b>'상세 실패 사유'</b> 영역을 통해 실패 원인을 즉시 파악할 수 있습니다.</li>
           </ul>
         </div>
 
