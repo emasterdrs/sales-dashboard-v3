@@ -54,39 +54,53 @@ export class SalesCalendarService {
 
   /**
    * Robust date parser for various user input formats.
-   * Supports YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD, YY/MM/DD, Excel serial numbers, etc.
+   * Core formats: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD, YY/MM/DD, Excel serial numbers.
+   * Special handles for Korean space-dot styles.
    */
   static parseUserDate(dateValue: any): string | null {
-    if (!dateValue) return null;
+    if (dateValue === null || dateValue === undefined) return null;
+
+    // Handle Excel Date Objects (if parse_dates: true was used)
+    if (dateValue instanceof Date) {
+      if (isValid(dateValue)) return format(dateValue, 'yyyy-MM-dd');
+      return null;
+    }
 
     // Handle Excel Serial Number
     if (typeof dateValue === 'number') {
-      const dateObj = XLSX.SSF.parse_date_code(dateValue);
-      return `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+      try {
+        const dateObj = XLSX.SSF.parse_date_code(dateValue);
+        return `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+      } catch (e) {
+        // Not a valid serial number? Treat as string below
+      }
     }
 
-    // Clean string input
-    let dateStr = String(dateValue).trim().replace(/[./]/g, '-');
+    // Clean string input: remove extra spaces and unify separators
+    // Handle formats like "2017 . 1 . 1" -> "2017-1-1"
+    let rawStr = String(dateValue).trim();
+    let dateStr = rawStr.replace(/\s/g, '').replace(/[./]/g, '-');
 
-    // Try various formats
+    // Try various formats via date-fns
     const formats = [
       'yyyy-MM-dd',
       'yyyy-M-d',
       'yyyyMMdd',
       'yy-MM-dd',
       'yy-M-d',
+      'yyyy-MM-dd HH:mm:ss',
       'M-d-yyyy',
       'MM-dd-yyyy'
     ];
 
     for (const f of formats) {
-      // For yyyyMMdd, we shouldn't have replaced separators with '-'
-      let targetStr = dateStr;
-      if (f === 'yyyyMMdd') targetStr = String(dateValue).trim();
+      // For dense formats like yyyyMMdd, use original string without spaces
+      let targetStr = (f === 'yyyyMMdd') ? rawStr.replace(/\s/g, '') : dateStr;
 
       try {
         const parsed = parse(targetStr, f, new Date());
-        if (isValid(parsed) && parsed.getFullYear() > 2000) {
+        // Relaxing year limit to support historical data (e.g. 2017 shown in screenshot)
+        if (isValid(parsed) && parsed.getFullYear() > 1950 && parsed.getFullYear() < 2100) {
           return format(parsed, 'yyyy-MM-dd');
         }
       } catch (e) {
@@ -94,11 +108,10 @@ export class SalesCalendarService {
       }
     }
 
-    // Fallback regex attempt for YYYYMMDD if formatting failed
-    const yyyymmddRegex = /^(\d{4})(\d{2})(\d{2})$/;
-    const match = String(dateValue).trim().match(yyyymmddRegex);
-    if (match) {
-        return `${match[1]}-${match[2]}-${match[3]}`;
+    // Fallback regex attempt for YYYYMMDD if formatting failed (e.g. 20170101)
+    const yyyymmddMatch = rawStr.replace(/\s/g, '').match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (yyyymmddMatch) {
+        return `${yyyymmddMatch[1]}-${yyyymmddMatch[2]}-${yyyymmddMatch[3]}`;
     }
 
     return null;
