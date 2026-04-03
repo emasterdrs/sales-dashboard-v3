@@ -69,8 +69,7 @@ const DashboardPage: React.FC = () => {
   const parseNum = (val: any): number => {
     if (!val) return 0;
     if (typeof val === 'string') {
-      const cleaned = val.replace(/,/g, '');
-      const num = parseFloat(cleaned);
+      const num = parseFloat(val.replace(/,/g, ''));
       return isNaN(num) ? 0 : num;
     }
     return isNaN(Number(val)) ? 0 : Number(val);
@@ -184,11 +183,9 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (divisions || []).map(d => d.id);
-          const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
-          const allTeamIds = ids.length > 0 ? (teamList || []).filter(t => ids.includes(t.division_id)).map(t => t.id) : [];
-          
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = allTeamIds.length > 0 ? await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('team_id', allTeamIds) : { data: [] };
+          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
 
           data = (divisions || []).map(d => {
             const target = parseNum((targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0);
@@ -217,7 +214,7 @@ const DashboardPage: React.FC = () => {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
           const ids = (teams || []).map(t => t.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('team_id', ids) : { data: [] };
+          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (teams || []).map(t => {
             const teamTarget = parseNum((targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0);
@@ -238,7 +235,7 @@ const DashboardPage: React.FC = () => {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
           const ids = (staff || []).map(s => s.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('staff_id', ids) : { data: [] };
+          const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (staff || []).map(s => {
             const staffTarget = parseNum((targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0);
@@ -273,7 +270,7 @@ const DashboardPage: React.FC = () => {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (cats || []).map(c => c.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('category_id', ids) : { data: [] };
+          const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
             const target = parseNum((targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0);
@@ -460,52 +457,51 @@ const DashboardPage: React.FC = () => {
             <div className={styles.unitBadge}>단위: {getUnitName()}</div>
           </div>
           
-          <div className={styles.chartWrapper}>
-            {isLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                <span className={styles.pulse}></span> 데이터 로딩중...
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="month" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
-                    dy={10} 
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      borderRadius: 'var(--radius-lg)', 
-                      border: '1px solid var(--border-subtle)', 
-                      boxShadow: 'var(--shadow-xl)',
-                      fontWeight: 700
-                    }} 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="performance" 
-                    stroke="var(--primary)" 
-                    strokeWidth={4} 
-                    fillOpacity={1} 
-                    fill="url(#colorIndigo)" 
-                    name="실적" 
-                    animationDuration={1500}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+          <div className={styles.chartWrapper} style={{ opacity: isLoading ? 0.3 : 1, transition: '0.2s', position: 'relative' }}>
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                  dy={10} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: 'var(--radius-lg)', 
+                    border: '1px solid var(--border-subtle)', 
+                    boxShadow: 'var(--shadow-xl)',
+                    fontWeight: 700
+                  }} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="performance" 
+                  stroke="var(--primary)" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorIndigo)" 
+                  name="실적" 
+                  animationDuration={1500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+            {isLoading && (
+               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontWeight: 'bold' }}>
+                 로딩중...
+               </div>
             )}
           </div>
         </div>
@@ -529,20 +525,19 @@ const DashboardPage: React.FC = () => {
           />
         </div>
 
-        <div className={styles.fullWidth}>
-          {isLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
-              데이터를 동기화하고 있습니다...
+        <div className={styles.fullWidth} style={{ opacity: isLoading ? 0.3 : 1, transition: '0.2s', position: 'relative' }}>
+          <DrillDownTable 
+            breadcrumbs={breadcrumbs}
+            onBreadcrumbClick={handleBreadcrumbClick}
+            data={displayData}
+            onRowClick={handleRowClick}
+            columns={columns}
+            isExpectedClosingOn={isExpectedClosingOn}
+          />
+          {isLoading && (
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontWeight: 'bold' }}>
+              동기화중...
             </div>
-          ) : (
-            <DrillDownTable 
-              breadcrumbs={breadcrumbs}
-              onBreadcrumbClick={handleBreadcrumbClick}
-              data={displayData}
-              onRowClick={handleRowClick}
-              columns={columns}
-              isExpectedClosingOn={isExpectedClosingOn}
-            />
           )}
         </div>
       </div>
