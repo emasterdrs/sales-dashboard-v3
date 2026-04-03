@@ -29,18 +29,28 @@ const DataUploadPage: React.FC = () => {
   const fetchStaffInfo = async () => {
     if (!profile?.company_id) return;
     try {
-      // Get all staff and their team_ids for this company
-      const { data: teams } = await supabase.from('sales_teams').select('id').eq('company_id', profile.company_id);
-      if (teams && teams.length > 0) {
-        const teamIds = teams.map(t => t.id);
-        const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teamIds);
-        
-        const map: Record<string, { id: string; teamId: string }> = {};
-        (staff || []).forEach(s => {
-          map[s.name] = { id: s.id, teamId: s.team_id };
-        });
-        setStaffMap(map as any);
-      }
+      // Get all branches, teams, and staff for this company
+      const { data: branches } = await supabase.from('sales_branches').select('id, name').eq('company_id', profile.company_id);
+      const { data: teams } = await supabase.from('sales_teams').select('id, name, branch_id').eq('company_id', profile.company_id);
+      const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map(t => t.id) || []);
+      
+      const branchMap: Record<string, string> = {};
+      branches?.forEach(b => branchMap[b.id] = b.name);
+      
+      const teamInfoMap: Record<string, { name: string; branchName: string }> = {};
+      teams?.forEach(t => {
+        teamInfoMap[t.id] = { name: t.name, branchName: branchMap[t.branch_id || ''] || '미지정' };
+      });
+      
+      const map: Record<string, { id: string; teamId: string }> = {};
+      (staff || []).forEach(s => {
+        const info = teamInfoMap[s.team_id];
+        if (info) {
+          const lookupKey = `${info.branchName}_${info.name}_${s.name}`;
+          map[lookupKey] = { id: s.id, teamId: s.team_id };
+        }
+      });
+      setStaffMap(map as any);
     } catch (err) {
       console.error('Error fetching staff info:', err);
     }
@@ -87,11 +97,12 @@ const DataUploadPage: React.FC = () => {
       return {
         _rowIndex: index + 2,
         date: dateValue ? String(dateValue).trim() : '',
-        teamName: row[1] ? String(row[1]).trim() : '',
-        name: row[2] ? String(row[2]).trim() : '',
-        customer: row[3] ? String(row[3]).trim() : '',
-        item: row[4] ? String(row[4]).trim() : '',
-        amountStr: row[5] ? String(row[5]) : ''
+        branchName: row[1] ? String(row[1]).trim() : '',
+        teamName: row[2] ? String(row[2]).trim() : '',
+        name: row[3] ? String(row[3]).trim() : '',
+        customer: row[4] ? String(row[4]).trim() : '',
+        item: row[5] ? String(row[5]).trim() : '',
+        amountStr: row[6] ? String(row[6]) : ''
       };
     }).filter(row => row !== null);
     
@@ -171,7 +182,8 @@ const DataUploadPage: React.FC = () => {
 
       for (const row of rows) {
         const rowNum = (row as any)._rowIndex;
-        const staffMapping = (staffMap as any)[row.name];
+        const lookupKey = `${row.branchName}_${row.teamName}_${row.name}`;
+        const staffMapping = (staffMap as any)[lookupKey];
         
         if (!row.date || !row.name || !row.amountStr) {
           errors.push(`${rowNum}행: 필수 정보(날짜, 성명, 금액)가 누락되었습니다.`);
@@ -184,7 +196,7 @@ const DataUploadPage: React.FC = () => {
         }
 
         if (!staffMapping) {
-          errors.push(`${rowNum}행: 등록되지 않은 성명(${row.name})입니다.`);
+          errors.push(`${rowNum}행: 등록되지 않은 사원 정보(${row.branchName} > ${row.teamName} > ${row.name})입니다.`);
           continue;
         }
 
@@ -330,11 +342,11 @@ const DataUploadPage: React.FC = () => {
             </div>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>2.</div>
-              <p>순서: 날짜, 팀명, 성명, 거래처명, 품목명, 매출액 (6개 열 필수)</p>
+              <p>순서: 날짜, 지점명, 팀명, 성명, 거래처명, 품목명, 매출액 (7개 열 필수)</p>
             </div>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>3.</div>
-              <p>성명은 조직 관리에서 등록된 정식 이름과 정확히 일치해야 합니다.</p>
+              <p>지점/팀/성명은 조직 관리에서 등록된 정보와 정확히 일치해야 합니다 (ID 매칭용).</p>
             </div>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>4.</div>

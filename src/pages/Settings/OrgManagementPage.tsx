@@ -4,8 +4,15 @@ import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './OrgManagementPage.module.css';
 
+interface Branch {
+  id: string;
+  name: string;
+  display_order: number;
+}
+
 interface Team {
   id: string;
+  branch_id: string;
   name: string;
   display_order: number;
 }
@@ -19,23 +26,36 @@ interface Staff {
 
 const OrgManagementPage: React.FC = () => {
   const { profile } = useAuth();
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+  
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
 
   // Modal states
-  const [showTeamModal, setShowTeamModal] = useState(false);
-  const [showStaffModal, setShowStaffModal] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState<'BRANCH' | 'TEAM' | 'STAFF'>('BRANCH');
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState({ name: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchTeams();
+    fetchBranches();
   }, [profile?.company_id]);
+
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchTeams(selectedBranch.id);
+    } else {
+      setTeams([]);
+      setSelectedTeam(null);
+    }
+  }, [selectedBranch]);
 
   useEffect(() => {
     if (selectedTeam) {
@@ -45,26 +65,34 @@ const OrgManagementPage: React.FC = () => {
     }
   }, [selectedTeam]);
 
-  const fetchTeams = async () => {
+  const fetchBranches = async () => {
     if (!profile?.company_id) return;
+    setIsLoadingBranches(true);
+    try {
+      const { data, error } = await supabase
+        .from('sales_branches')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      setBranches(data || []);
+      if (data && data.length > 0 && !selectedBranch) setSelectedBranch(data[0]);
+    } catch (err) { console.error(err); } finally { setIsLoadingBranches(false); }
+  };
+
+  const fetchTeams = async (branchId: string) => {
     setIsLoadingTeams(true);
     try {
       const { data, error } = await supabase
         .from('sales_teams')
         .select('*')
-        .eq('company_id', profile.company_id)
+        .eq('branch_id', branchId)
         .order('display_order', { ascending: true });
-
       if (error) throw error;
       setTeams(data || []);
-      if (data && data.length > 0 && !selectedTeam) {
-        setSelectedTeam(data[0]);
-      }
-    } catch (err) {
-      console.error('Error fetching teams:', err);
-    } finally {
-      setIsLoadingTeams(false);
-    }
+      if (data && data.length > 0) setSelectedTeam(data[0]);
+      else setSelectedTeam(null);
+    } catch (err) { console.error(err); } finally { setIsLoadingTeams(false); }
   };
 
   const fetchStaff = async (teamId: string) => {
@@ -75,134 +103,61 @@ const OrgManagementPage: React.FC = () => {
         .select('*')
         .eq('team_id', teamId)
         .order('display_order', { ascending: true });
-
       if (error) throw error;
       setStaff(data || []);
-    } catch (err) {
-      console.error('Error fetching staff:', err);
-    } finally {
-      setIsLoadingStaff(false);
-    }
+    } catch (err) { console.error(err); } finally { setIsLoadingStaff(false); }
   };
 
-  const handleOpenTeamModal = (team?: Team) => {
-    if (team) {
-      setEditingTeam(team);
-      setFormData({ name: team.name });
-    } else {
-      setEditingTeam(null);
-      setFormData({ name: '' });
-    }
-    setShowTeamModal(true);
+  const handleOpenModal = (type: 'BRANCH' | 'TEAM' | 'STAFF', item?: any) => {
+    setModalType(type);
+    setEditingItem(item || null);
+    setFormData({ name: item ? item.name : '' });
+    setShowModal(true);
   };
 
-  const handleOpenStaffModal = (staffMember?: Staff) => {
-    if (!selectedTeam) return;
-    if (staffMember) {
-      setEditingStaff(staffMember);
-      setFormData({ name: staffMember.name });
-    } else {
-      setEditingStaff(null);
-      setFormData({ name: '' });
-    }
-    setShowStaffModal(true);
-  };
-
-  const handleTeamSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.company_id || !formData.name) return;
-
     setIsSubmitting(true);
     try {
-      if (editingTeam) {
-        const { error } = await supabase
-          .from('sales_teams')
-          .update({ name: formData.name })
-          .eq('id', editingTeam.id);
-        if (error) throw error;
-      } else {
-        const maxOrder = teams.length > 0 ? Math.max(...teams.map(t => t.display_order)) : 0;
-        const { error } = await supabase
-          .from('sales_teams')
-          .insert({
-            company_id: profile.company_id,
-            name: formData.name,
-            display_order: maxOrder + 1
-          });
-        if (error) throw error;
+      if (modalType === 'BRANCH') {
+        if (editingItem) {
+          await supabase.from('sales_branches').update({ name: formData.name }).eq('id', editingItem.id);
+        } else {
+          const maxOrder = branches.length > 0 ? Math.max(...branches.map(b => b.display_order)) : 0;
+          await supabase.from('sales_branches').insert({ company_id: profile.company_id, name: formData.name, display_order: maxOrder + 1 });
+        }
+        fetchBranches();
+      } else if (modalType === 'TEAM' && selectedBranch) {
+        if (editingItem) {
+          await supabase.from('sales_teams').update({ name: formData.name }).eq('id', editingItem.id);
+        } else {
+          const maxOrder = teams.length > 0 ? Math.max(...teams.map(t => t.display_order)) : 0;
+          await supabase.from('sales_teams').insert({ company_id: profile.company_id, branch_id: selectedBranch.id, name: formData.name, display_order: maxOrder + 1 });
+        }
+        fetchTeams(selectedBranch.id);
+      } else if (modalType === 'STAFF' && selectedTeam) {
+        if (editingItem) {
+          await supabase.from('sales_staff').update({ name: formData.name }).eq('id', editingItem.id);
+        } else {
+          const maxOrder = staff.length > 0 ? Math.max(...staff.map(s => s.display_order)) : 0;
+          await supabase.from('sales_staff').insert({ team_id: selectedTeam.id, name: formData.name, display_order: maxOrder + 1 });
+        }
+        fetchStaff(selectedTeam.id);
       }
-      setShowTeamModal(false);
-      fetchTeams();
-    } catch (err) {
-      console.error('Error saving team:', err);
-      alert('팀 저장 중 오류가 발생했습니다.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      setShowModal(false);
+    } catch (err) { console.error(err); alert('저장 중 오류가 발생했습니다.'); } finally { setIsSubmitting(false); }
   };
 
-  const handleStaffSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTeam || !formData.name) return;
-
-    setIsSubmitting(true);
+  const handleDelete = async (type: 'BRANCH' | 'TEAM' | 'STAFF', id: string) => {
+    if (!window.confirm('삭제하시겠습니까? 하위 단계 데이터도 함께 삭제될 수 있습니다.')) return;
     try {
-      if (editingStaff) {
-        const { error } = await supabase
-          .from('sales_staff')
-          .update({ name: formData.name })
-          .eq('id', editingStaff.id);
-        if (error) throw error;
-      } else {
-        const maxOrder = staff.length > 0 ? Math.max(...staff.map(s => s.display_order)) : 0;
-        const { error } = await supabase
-          .from('sales_staff')
-          .insert({
-            team_id: selectedTeam.id,
-            name: formData.name,
-            display_order: maxOrder + 1
-          });
-        if (error) throw error;
-      }
-      setShowStaffModal(false);
-      fetchStaff(selectedTeam.id);
-    } catch (err) {
-      console.error('Error saving staff:', err);
-      alert('인원 저장 중 오류가 발생했습니다.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const deleteTeam = async (id: string) => {
-    if (!window.confirm('팀을 삭제하시겠습니까? 팀에 속한 모든 인원 데이터도 함께 삭제됩니다.')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('sales_teams')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      if (selectedTeam?.id === id) setSelectedTeam(null);
-      fetchTeams();
-    } catch (err) {
-      console.error('Error deleting team:', err);
-    }
-  };
-
-  const deleteStaff = async (id: string) => {
-    if (!window.confirm('인원을 삭제하시겠습니까?')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('sales_staff')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      if (selectedTeam) fetchStaff(selectedTeam.id);
-    } catch (err) {
-      console.error('Error deleting staff:', err);
-    }
+      const table = type === 'BRANCH' ? 'sales_branches' : type === 'TEAM' ? 'sales_teams' : 'sales_staff';
+      await supabase.from(table).delete().eq('id', id);
+      if (type === 'BRANCH') { if (selectedBranch?.id === id) setSelectedBranch(null); fetchBranches(); }
+      else if (type === 'TEAM') { if (selectedTeam?.id === id) setSelectedTeam(null); if (selectedBranch) fetchTeams(selectedBranch.id); }
+      else if (selectedTeam) fetchStaff(selectedTeam.id);
+    } catch (err) { console.error(err); }
   };
 
   return (
@@ -211,154 +166,94 @@ const OrgManagementPage: React.FC = () => {
         <div className={styles.titleArea}>
           <div className={styles.iconWrapper}><Users size={28} /></div>
           <div>
-            <h1 className={styles.title}>조직 및 인원 관리</h1>
-            <p className={styles.subtitle}>영업팀을 구성하고 소속 인원을 관리하세요.</p>
+            <h1 className={styles.title}>조직 및 인원 관리 (3단계)</h1>
+            <p className={styles.subtitle}>지점 → 팀 → 사원 체계로 조직을 관리하세요.</p>
           </div>
         </div>
       </header>
 
-      {isLoadingTeams ? (
-        <div className={styles.loadingArea}>
-          <Loader2 className={styles.animateSpin} size={40} />
-          <p>데이터를 불러오는 중...</p>
-        </div>
+      {isLoadingBranches ? (
+        <div className={styles.loadingArea}><Loader2 className={styles.animateSpin} size={40} /><p>데이터 로딩 중...</p></div>
       ) : (
         <div className={styles.mainLayout}>
+          {/* Branches Column */}
+          <div className={styles.card}>
+            <div className={styles.cardTitleArea}>
+              <h2 className={styles.cardTitle}>지점 목록</h2>
+              <button className={styles.addBtn} onClick={() => handleOpenModal('BRANCH')}><Plus size={16} /> 추가</button>
+            </div>
+            <div className={styles.itemList}>
+              {branches.map(branch => (
+                <div key={branch.id} className={`${styles.item} ${selectedBranch?.id === branch.id ? styles.itemActive : ''}`} onClick={() => setSelectedBranch(branch)}>
+                  <span className={styles.itemName}>{branch.name}</span>
+                  <div className={styles.itemActions}>
+                    <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleOpenModal('BRANCH', branch); }}><Edit2 size={14} /></button>
+                    <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleDelete('BRANCH', branch.id); }}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Teams Column */}
           <div className={styles.card}>
             <div className={styles.cardTitleArea}>
-              <h2 className={styles.cardTitle}>영업팀 목록</h2>
-              <button className={styles.addBtn} onClick={() => handleOpenTeamModal()}>
-                <Plus size={16} /> 추가
-              </button>
+              <h2 className={styles.cardTitle}>{selectedBranch ? `[${selectedBranch.name}] 소속 팀` : '팀 관리'}</h2>
+              {selectedBranch && <button className={styles.addBtn} onClick={() => handleOpenModal('TEAM')}><Plus size={16} /> 추가</button>}
             </div>
             <div className={styles.itemList}>
-              {teams.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Users size={32} />
-                  <p>등록된 팀이 없습니다.</p>
-                </div>
-              ) : (
+              {!selectedBranch ? <p className={styles.emptyState}>지점을 선택하세요.</p> :
+                isLoadingTeams ? <Loader2 className={styles.animateSpin} size={24} /> :
                 teams.map(team => (
-                  <div 
-                    key={team.id} 
-                    className={`${styles.item} ${selectedTeam?.id === team.id ? styles.itemActive : ''}`}
-                    onClick={() => setSelectedTeam(team)}
-                  >
+                  <div key={team.id} className={`${styles.item} ${selectedTeam?.id === team.id ? styles.itemActive : ''}`} onClick={() => setSelectedTeam(team)}>
                     <span className={styles.itemName}>{team.name}</span>
                     <div className={styles.itemActions}>
-                      <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleOpenTeamModal(team); }}>
-                        <Edit2 size={14} />
-                      </button>
-                      <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); deleteTeam(team.id); }}>
-                        <Trash2 size={14} />
-                      </button>
+                      <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleOpenModal('TEAM', team); }}><Edit2 size={14} /></button>
+                      <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); handleDelete('TEAM', team.id); }}><Trash2 size={14} /></button>
                     </div>
                   </div>
                 ))
-              )}
+              }
             </div>
           </div>
 
           {/* Staff Column */}
           <div className={styles.card}>
             <div className={styles.cardTitleArea}>
-              <h2 className={styles.cardTitle}>
-                {selectedTeam ? `[${selectedTeam.name}] 소속 인원` : '인원 관리'}
-              </h2>
-              {selectedTeam && (
-                <button className={styles.addBtn} onClick={() => handleOpenStaffModal()}>
-                  <Plus size={16} /> 인원 추가
-                </button>
-              )}
+              <h2 className={styles.cardTitle}>{selectedTeam ? `[${selectedTeam.name}] 인원` : '인원 관리'}</h2>
+              {selectedTeam && <button className={styles.addBtn} onClick={() => handleOpenModal('STAFF')}><Plus size={16} /> 추가</button>}
             </div>
             <div className={styles.itemList}>
-              {!selectedTeam ? (
-                <div className={styles.emptyState}>
-                  <p>왼쪽에서 팀을 먼저 선택하세요.</p>
-                </div>
-              ) : isLoadingStaff ? (
-                <div className={styles.emptyState}>
-                  <Loader2 className={styles.animateSpin} size={24} />
-                </div>
-              ) : staff.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Users size={32} />
-                  <p>해당 팀에 등록된 인원이 없습니다.</p>
-                </div>
-              ) : (
+              {!selectedTeam ? <p className={styles.emptyState}>팀을 선택하세요.</p> :
+                isLoadingStaff ? <Loader2 className={styles.animateSpin} size={24} /> :
                 staff.map(member => (
                   <div key={member.id} className={styles.item}>
                     <span className={styles.itemName}>{member.name}</span>
                     <div className={styles.itemActions}>
-                      <button className={styles.actionBtn} onClick={() => handleOpenStaffModal(member)}>
-                        <Edit2 size={14} />
-                      </button>
-                      <button className={styles.actionBtn} onClick={() => deleteStaff(member.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      <button className={styles.actionBtn} onClick={() => handleOpenModal('STAFF', member)}><Edit2 size={14} /></button>
+                      <button className={styles.actionBtn} onClick={() => handleDelete('STAFF', member.id)}><Trash2 size={14} /></button>
                     </div>
                   </div>
                 ))
-              )}
+              }
             </div>
           </div>
         </div>
       )}
 
-      {/* Team Modal */}
-      {showTeamModal && (
+      {/* Unified Modal */}
+      {showModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>{editingTeam ? '팀 수정' : '새 팀 추가'}</h3>
-            <form onSubmit={handleTeamSubmit}>
+            <h3 className={styles.modalTitle}>{editingItem ? '수정하기' : '새로 추가'}</h3>
+            <form onSubmit={handleSubmit}>
               <div className={styles.formGroup}>
-                <label className={styles.label}>팀 명칭</label>
-                <input 
-                  className={styles.input}
-                  type="text" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="예: 영업1팀, 경기본부 등"
-                  autoFocus
-                  required
-                />
+                <label className={styles.label}>명칭</label>
+                <input className={styles.input} type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} autoFocus required />
               </div>
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setShowTeamModal(false)}>취소</button>
-                <button type="submit" className={styles.confirmBtn} disabled={isSubmitting}>
-                  {isSubmitting ? '처리 중...' : '저장하기'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Staff Modal */}
-      {showStaffModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>{editingStaff ? '인원 정보 수정' : '팀원 추가'}</h3>
-            <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>현재 팀: {selectedTeam?.name}</p>
-            <form onSubmit={handleStaffSubmit}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>성명 / 닉네임</label>
-                <input 
-                  className={styles.input}
-                  type="text" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="예: 홍길동, 박관리 등"
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setShowStaffModal(false)}>취소</button>
-                <button type="submit" className={styles.confirmBtn} disabled={isSubmitting}>
-                  {isSubmitting ? '처리 중...' : '저장하기'}
-                </button>
+                <button type="button" className={styles.cancelBtn} onClick={() => setShowModal(false)}>취소</button>
+                <button type="submit" className={styles.confirmBtn} disabled={isSubmitting}>{isSubmitting ? '처리 중...' : '저장하기'}</button>
               </div>
             </form>
           </div>

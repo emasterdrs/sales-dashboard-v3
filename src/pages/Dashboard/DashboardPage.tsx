@@ -39,7 +39,7 @@ const DashboardPage: React.FC = () => {
   const [unit, setUnit] = useState<'won' | 'million' | 'billion'>('billion');
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string; level: number }[]>([]);
   const [currentLevel, setCurrentLevel] = useState(0); // 0: Team List, 1: Staff List, 2: Client List, 3: Item List
-  const [selectedIds, setSelectedIds] = useState<{ teamId?: string; staffId?: string; customerName?: string; categoryId?: string }>({});
+  const [selectedIds, setSelectedIds] = useState<{ branchId?: string; teamId?: string; staffId?: string; customerName?: string; categoryId?: string }>({});
 
   const [workingDays, setWorkingDays] = useState({ total: 21, current: 13 });
   const [summaryData, setSummaryData] = useState({ 
@@ -172,67 +172,71 @@ const DashboardPage: React.FC = () => {
     if (!profile?.company_id) return;
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
-    const isTypeMode = location.pathname.includes('type');
     
     try {
       let data: DashboardData[] = [];
       
       if (currentLevel === 0) {
-        if (isTypeMode) {
-          // Level 0: Product Categories
-          const { data: categories } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).is('parent_id', null);
-          const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
+        // Level 0: Branches
+        const { data: branches } = await supabase.from('sales_branches').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
+        const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'BRANCH').eq('year', year).eq('month', month);
+        const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
+        
+        // We need team -> branch mapping to aggregate branch performance
+        const { data: teamList } = await supabase.from('sales_teams').select('id, branch_id').eq('company_id', profile.company_id);
+
+        data = (branches || []).map(b => {
+          const branchTarget = (targets || []).find(tg => tg.entity_id === b.id)?.target_amount || 0;
+          const branchTeamIds = (teamList || []).filter(t => t.branch_id === b.id).map(t => t.id);
+          const branchPerf = (perf || []).filter(p => branchTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + Number(p.amount), 0);
           
-          data = (categories || []).map(cat => {
-            const catPerf = (perf || []).filter(p => p.category_id === cat.id).reduce((acc, p) => acc + Number(p.amount), 0);
-            return {
-              id: cat.id,
-              name: cat.name,
-              goal: '-',
-              performance: formatValue(catPerf),
-              achieve: '0.0',
-              gap: '0.0',
-              expectedGoal: '-',
-              expectedPerformance: formatValue(catPerf), // Logic can be more complex
-              expectedAchieve: '0.0',
-              expectedGap: '0.0'
-            };
-          });
-        } else {
-          // Level 0: Teams (Original logic)
-          const { data: teams } = await supabase.from('sales_teams').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
-          const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month);
-          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
+          const achieve = branchTarget > 0 ? (branchPerf / Number(branchTarget)) * 100 : 0;
+          const expectedAtNow = Number(branchTarget) * progressLimit;
+          const gap = branchPerf - expectedAtNow;
 
-          data = (teams || []).map(t => {
-            const teamTarget = (targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0;
-            const teamPerf = (perf || []).filter(p => p.team_id === t.id).reduce((acc, p) => acc + Number(p.amount), 0);
-            const achieve = teamTarget > 0 ? (teamPerf / Number(teamTarget)) * 100 : 0;
-            const expectedAtNow = Number(teamTarget) * progressLimit;
-            const gap = teamPerf - expectedAtNow;
+          const dailyAvg = workingDays.current > 0 ? branchPerf / workingDays.current : 0;
+          const expected = dailyAvg * workingDays.total;
+          const expectedAchieve = branchTarget > 0 ? (expected / Number(branchTarget)) * 100 : 0;
+          const expectedGap = expected - Number(branchTarget);
 
-            const dailyAvg = workingDays.current > 0 ? teamPerf / workingDays.current : 0;
-            const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = teamTarget > 0 ? (expected / Number(teamTarget)) * 100 : 0;
-            const expectedGap = expected - Number(teamTarget);
-
-            return {
-              id: t.id,
-              name: t.name,
-              goal: formatValue(Number(teamTarget)),
-              performance: formatValue(teamPerf),
-              achieve: achieve.toFixed(1),
-              gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-              expectedGoal: formatValue(Number(teamTarget)),
-              expectedPerformance: formatValue(expected),
-              expectedAchieve: expectedAchieve.toFixed(1),
-              expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
-            };
-          });
-        }
+          return {
+            id: b.id, name: b.name,
+            goal: formatValue(Number(branchTarget)), performance: formatValue(branchPerf), achieve: achieve.toFixed(1),
+            gap: (gap >= 0 ? '+' : '') + formatValue(gap),
+            expectedGoal: formatValue(Number(branchTarget)), expectedPerformance: formatValue(expected),
+            expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
+          };
+        });
       } 
-      else if (currentLevel === 1 && selectedIds.teamId) {
-        // Level 1: Staff in Team
+      else if (currentLevel === 1 && selectedIds.branchId) {
+        // Level 1: Teams in Branch
+        const { data: teams } = await supabase.from('sales_teams').select('*').eq('branch_id', selectedIds.branchId).order('display_order', { ascending: true });
+        const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month);
+        const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
+
+        data = (teams || []).map(t => {
+          const teamTarget = (targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0;
+          const teamPerf = (perf || []).filter(p => p.team_id === t.id).reduce((acc, p) => acc + Number(p.amount), 0);
+          const achieve = teamTarget > 0 ? (teamPerf / Number(teamTarget)) * 100 : 0;
+          const expectedAtNow = Number(teamTarget) * progressLimit;
+          const gap = teamPerf - expectedAtNow;
+
+          const dailyAvg = workingDays.current > 0 ? teamPerf / workingDays.current : 0;
+          const expected = dailyAvg * workingDays.total;
+          const expectedAchieve = teamTarget > 0 ? (expected / Number(teamTarget)) * 100 : 0;
+          const expectedGap = expected - Number(teamTarget);
+
+          return {
+            id: t.id, name: t.name,
+            goal: formatValue(Number(teamTarget)), performance: formatValue(teamPerf), achieve: achieve.toFixed(1),
+            gap: (gap >= 0 ? '+' : '') + formatValue(gap),
+            expectedGoal: formatValue(Number(teamTarget)), expectedPerformance: formatValue(expected),
+            expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
+          };
+        });
+      }
+      else if (currentLevel === 2 && selectedIds.teamId) {
+        // Level 2: Staff in Team
         const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
         const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month);
         const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate);
@@ -266,9 +270,9 @@ const DashboardPage: React.FC = () => {
           };
         });
       }
-      else if (currentLevel === 2 && selectedIds.staffId) {
-        // Level 2: Customers for Staff
-        const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate);
+      else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
+        // Level 4: Items for Customer/Staff
+        const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate);
         
         const customerMap = new Map<string, number>();
         (perf || []).forEach(p => {
@@ -327,11 +331,12 @@ const DashboardPage: React.FC = () => {
 
   const getLabelByLevel = (level: number) => {
     switch(level) {
-      case 0: return '영업팀';
-      case 1: return '영업사원';
-      case 2: return '거래처';
-      case 3: return '품목';
-      default: return '품목';
+      case 0: return '지점';
+      case 1: return '영업팀';
+      case 2: return '영업사원';
+      case 3: return '거래처';
+      case 4: return '품목';
+      default: return '지점';
     }
   };
 
@@ -344,19 +349,13 @@ const DashboardPage: React.FC = () => {
   ];
 
   const handleRowClick = (id: string, name: string) => {
-    const isTypeMode = location.pathname.includes('type');
-    
-    if (currentLevel < 3) {
+    if (currentLevel < 4) {
       setBreadcrumbs([...breadcrumbs, { id, name, level: currentLevel }]);
       
-      if (isTypeMode) {
-        if (currentLevel === 0) setSelectedIds({ ...selectedIds, categoryId: id });
-        // Add more type-based drilldown steps if needed
-      } else {
-        if (currentLevel === 0) setSelectedIds({ ...selectedIds, teamId: id });
-        else if (currentLevel === 1) setSelectedIds({ ...selectedIds, staffId: id });
-        else if (currentLevel === 2) setSelectedIds({ ...selectedIds, customerName: name });
-      }
+      if (currentLevel === 0) setSelectedIds({ ...selectedIds, branchId: id });
+      else if (currentLevel === 1) setSelectedIds({ ...selectedIds, teamId: id });
+      else if (currentLevel === 2) setSelectedIds({ ...selectedIds, staffId: id });
+      else if (currentLevel === 3) setSelectedIds({ ...selectedIds, customerName: name });
       
       setCurrentLevel(currentLevel + 1);
     }
@@ -368,14 +367,15 @@ const DashboardPage: React.FC = () => {
       setSelectedIds({});
       setCurrentLevel(0);
     } else {
-      const newBcs = breadcrumbs.slice(0, idx + 1);
-      setBreadcrumbs(newBcs);
+      const targetBcs = breadcrumbs.slice(0, idx + 1);
+      setBreadcrumbs(targetBcs);
       setCurrentLevel(idx + 1);
-      // Update selected IDs based on breadcrumbs
+      
       const newIds: any = {};
-      if (idx >= 0) newIds.teamId = breadcrumbs[0].id;
-      if (idx >= 1) newIds.staffId = breadcrumbs[1].id;
-      if (idx >= 2) newIds.customerName = breadcrumbs[2].name;
+      if (idx >= 0) newIds.branchId = breadcrumbs[0].id;
+      if (idx >= 1) newIds.teamId = breadcrumbs[1].id;
+      if (idx >= 2) newIds.staffId = breadcrumbs[2].id;
+      if (idx >= 3) newIds.customerName = breadcrumbs[3].name;
       setSelectedIds(newIds);
     }
   };
