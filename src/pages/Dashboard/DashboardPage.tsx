@@ -3,15 +3,6 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area
 } from 'recharts';
-import { 
-  Building2, 
-  TrendingUp, 
-  Target, 
-  ArrowUpRight, 
-  ChevronRight,
-  TrendingDown,
-  ChevronLeft
-} from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardHeader from '../../components/Dashboard/DashboardHeader';
