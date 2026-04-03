@@ -15,7 +15,7 @@ interface Company {
 }
 
 const CompanyApprovalPage: React.FC = () => {
-  const { profile, effectiveRole } = useAuth(); // Added effectiveRole
+  const { effectiveRole } = useAuth(); // Added effectiveRole
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);

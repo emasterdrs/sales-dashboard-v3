@@ -71,7 +71,7 @@ CREATE TABLE public.working_days_config (
 );
 
 -- Sales Performance Data
-CREATE TABLE public.sales_performance (
+CREATE TABLE public.sales_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
     staff_id UUID REFERENCES public.sales_staff(id) ON DELETE SET NULL,
@@ -80,7 +80,8 @@ CREATE TABLE public.sales_performance (
     item_name TEXT,
     amount BIGINT DEFAULT 0, -- Store in KRW
     sales_date DATE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    team_id UUID REFERENCES public.sales_teams(id) ON DELETE SET NULL -- Added team_id for easier querying
 );
 
 -- Sales Targets
@@ -114,7 +115,7 @@ ALTER TABLE public.sales_teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales_staff ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.working_days_config ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales_performance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sales_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales_targets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 
@@ -133,7 +134,7 @@ CREATE POLICY staff_isolation ON public.sales_staff FOR ALL USING (
 CREATE POLICY categories_isolation ON public.product_categories FOR ALL USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
 );
-CREATE POLICY performance_isolation ON public.sales_performance FOR ALL USING (
+CREATE POLICY performance_isolation ON public.sales_records FOR ALL USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
 );
 CREATE POLICY targets_isolation ON public.sales_targets FOR ALL USING (

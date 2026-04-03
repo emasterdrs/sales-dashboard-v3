@@ -11,8 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     storageKey: 'voda-auth-session',
-    storage: window.sessionStorage, // Use sessionStorage instead of localStorage
+    storage: window.sessionStorage,
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
 });
+

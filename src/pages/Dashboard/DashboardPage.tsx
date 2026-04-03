@@ -191,7 +191,7 @@ const DashboardPage: React.FC = () => {
           });
         } else {
           // Level 0: Teams (Original logic)
-          const { data: teams } = await supabase.from('sales_teams').select('*').eq('company_id', profile.company_id);
+          const { data: teams } = await supabase.from('sales_teams').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month);
           const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
 
@@ -224,7 +224,7 @@ const DashboardPage: React.FC = () => {
       } 
       else if (currentLevel === 1 && selectedIds.teamId) {
         // Level 1: Staff in Team
-        const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId);
+        const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
         const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month);
         const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate);
 

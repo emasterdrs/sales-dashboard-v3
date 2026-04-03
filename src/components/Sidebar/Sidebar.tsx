@@ -127,14 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
       });
   }
 
-  const getRoleLabel = (role: string | null) => {
-    switch(role) {
-      case 'SUPER_ADMIN': return '슈퍼 관리자';
-      case 'COMPANY_ADMIN': return '기업 관리자';
-      case 'USER': return '일반 사용자';
-      default: return '영업팀원';
-    }
-  };
+
 
   return (
     <aside className={styles.sidebar}>

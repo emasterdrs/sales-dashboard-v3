@@ -3,6 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/Auth/LoginPage';
 import SignUpPage from './pages/Auth/SignUpPage';
+import AuthCallback from './pages/Auth/AuthCallback';
+import EmailConfirmPage from './pages/Auth/EmailConfirmPage';
+import RequestResetPassword from './pages/Auth/RequestResetPassword';
+import UpdatePasswordPage from './pages/Auth/UpdatePasswordPage';
 import RegisterCompanyPage from './pages/Auth/RegisterCompanyPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import WorkingDaysPage from './pages/Settings/WorkingDaysPage';
@@ -44,6 +48,10 @@ const AuthWrapper: React.FC = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/confirm" element={<EmailConfirmPage />} />
+      <Route path="/auth/reset" element={<RequestResetPassword />} />
+      <Route path="/update-password" element={<UpdatePasswordPage />} />
       <Route path="/register-company" element={<RegisterCompanyPage />} />
       
       {/* Main Routes */}
@@ -87,6 +95,5 @@ const AuthWrapper: React.FC = () => {
     </Routes>
   );
 };
-
 
 export default App;
