@@ -34,17 +34,25 @@ const TargetManagementPage: React.FC = () => {
       // 1. Get Entities (Teams or Staff)
       let entities: any[] = [];
       if (activeTab === 'TEAM') {
-        const { data: teams } = await supabase.from('sales_teams').select('id, name').eq('company_id', profile.company_id);
+        const { data: teams } = await supabase.from('sales_teams').select('id, name').eq('company_id', profile.company_id).order('display_order', { ascending: true });
         entities = teams || [];
       } else {
         // Staff lookup requires team join
         const { data: teams } = await supabase.from('sales_teams').select('id').eq('company_id', profile.company_id);
         const teamIds = teams?.map(t => t.id) || [];
-        const { data: staff } = await supabase.from('sales_staff').select('id, name, sales_teams(name)').in('team_id', teamIds);
-        entities = (staff || []).map(s => ({
+        const { data: staff } = await supabase.from('sales_staff').select('id, name, display_order, sales_teams(name, display_order)').in('team_id', teamIds).order('display_order', { ascending: true });
+        
+        // Custom sort to handle team order + staff order
+        entities = (staff || [])
+          .sort((a: any, b: any) => {
+            const teamOrder = (a.sales_teams as any)?.display_order - (b.sales_teams as any)?.display_order;
+            if (teamOrder !== 0) return teamOrder;
+            return (a.display_order || 0) - (b.display_order || 0);
+          })
+          .map(s => ({
             id: s.id,
             name: `${(s.sales_teams as any)?.name} - ${s.name}`
-        }));
+          }));
       }
 
       // 2. Get Targets

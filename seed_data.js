@@ -50,7 +50,7 @@ async function seed() {
   // 3. Create Teams and Staff
   const teams = [];
   for (let i = 1; i <= 5; i++) {
-    const { data: team } = await supabase.from('sales_teams').upsert({ company_id: companyId, name: `영업 ${i}팀` }, { onConflict: 'company_id, name' }).select().single();
+    const { data: team } = await supabase.from('sales_teams').upsert({ company_id: companyId, name: `영업 ${i}팀`, display_order: i }, { onConflict: 'company_id, name' }).select().single();
     if (team) teams.push(team);
   }
 
@@ -59,7 +59,7 @@ async function seed() {
     const staffInTeam = [];
     for (let j = 1; j <= 6; j++) {
       const staffName = `${team.name.replace(' ', '')}_사원${j}`;
-      const { data: staff } = await supabase.from('sales_staff').upsert({ team_id: team.id, name: staffName }, { onConflict: 'team_id, name' }).select().single();
+      const { data: staff } = await supabase.from('sales_staff').upsert({ team_id: team.id, name: staffName, display_order: j }, { onConflict: 'team_id, name' }).select().single();
       if (staff) staffInTeam.push(staff);
     }
     staffList.push(...staffInTeam);
