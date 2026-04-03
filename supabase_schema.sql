@@ -3,7 +3,7 @@
 -- 1. ENUMS & ROLES
 CREATE TYPE public.user_role AS ENUM ('SUPER_ADMIN', 'COMPANY_ADMIN', 'USER');
 CREATE TYPE public.company_status AS ENUM ('PENDING_APPROVAL', 'APPROVED', 'SUSPENDED');
-CREATE TYPE public.target_entity_type AS ENUM ('TEAM', 'STAFF', 'CATEGORY');
+CREATE TYPE public.target_entity_type AS ENUM ('DIVISION', 'TEAM', 'STAFF', 'CATEGORY');
 
 -- 2. TABLES
 -- Companies (Tenants)
@@ -31,8 +31,8 @@ CREATE TABLE public.profiles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Organization: Sales Branches (Added for scaling)
-CREATE TABLE public.sales_branches (
+-- Organization: Sales Divisions (Formerly Branches)
+CREATE TABLE public.sales_divisions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE public.sales_branches (
 CREATE TABLE public.sales_teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
-    branch_id UUID REFERENCES public.sales_branches(id) ON DELETE SET NULL, -- Linked to Branch
+    division_id UUID REFERENCES public.sales_divisions(id) ON DELETE SET NULL, -- Linked to Division
     name TEXT NOT NULL,
     display_order INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -100,7 +100,7 @@ CREATE TABLE public.sales_targets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
     entity_type public.target_entity_type NOT NULL,
-    entity_id UUID NOT NULL, -- UUID of Team, Staff, or Category
+    entity_id UUID NOT NULL, -- UUID of Division, Team, Staff, or Category
     year INT NOT NULL,
     month INT NOT NULL,
     target_amount BIGINT DEFAULT 0,
@@ -122,7 +122,7 @@ CREATE TABLE public.inquiries (
 -- 3. ROW LEVEL SECURITY (RLS) policies
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales_branches ENABLE ROW LEVEL SECURITY; -- Added RLS for branches
+ALTER TABLE public.sales_divisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales_teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales_staff ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
@@ -137,7 +137,7 @@ CREATE POLICY super_admin_all ON public.companies FOR ALL USING (
 );
 
 -- Company isolation policies (Main logic)
-CREATE POLICY branches_isolation ON public.sales_branches FOR ALL USING (
+CREATE POLICY divisions_isolation ON public.sales_divisions FOR ALL USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
 );
 CREATE POLICY company_isolation ON public.sales_teams FOR ALL USING (

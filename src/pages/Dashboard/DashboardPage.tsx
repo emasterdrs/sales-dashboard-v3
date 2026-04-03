@@ -1,22 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  AreaChart, Area
+} from 'recharts';
+import { 
+  Building2, 
+  TrendingUp, 
+  Target, 
+  ArrowUpRight, 
+  ChevronRight,
+  TrendingDown,
+  ChevronLeft
+} from 'lucide-react';
+import { supabase } from '../../api/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import DashboardHeader from '../../components/Dashboard/DashboardHeader';
 import SummaryGrid from '../../components/Dashboard/SummaryGrid';
 import DrillDownTable from '../../components/Dashboard/DrillDownTable';
-import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './DashboardPage.module.css';
-import { supabase } from '../../api/supabase';
-import { useAuth } from '../../contexts/AuthContext';
-import { SalesCalendarService } from '../../services/SalesCalendarService';
-import { parseISO } from 'date-fns';
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart,
-  Area
-} from 'recharts';
 
 interface DashboardData {
   id: string;
@@ -29,142 +30,98 @@ interface DashboardData {
   expectedPerformance?: string;
   expectedAchieve?: string;
   expectedGap?: string;
+  originalGoalVal?: number;
+  originalPerfVal?: number;
 }
 
 const DashboardPage: React.FC = () => {
-  const { profile, effectiveRole, isLoading: authLoading } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
+  const { profile } = useAuth();
+  const [year] = useState(new Date().getFullYear());
+  const [month] = useState(new Date().getMonth() + 1);
   const [unit, setUnit] = useState<'won' | 'million' | 'billion'>('billion');
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string; level: number }[]>([]);
-  const [currentLevel, setCurrentLevel] = useState(0); // 0: Team List, 1: Staff List, 2: Client List, 3: Item List
-  const [selectedIds, setSelectedIds] = useState<{ branchId?: string; teamId?: string; staffId?: string; customerName?: string; categoryId?: string }>({});
+  const [currentLevel, setCurrentLevel] = useState(0); // 0: Division, 1: Team, 2: Staff, 3: Customer, 4: Item
+  const [selectedIds, setSelectedIds] = useState<{ divisionId?: string; teamId?: string; staffId?: string; customerName?: string; categoryId?: string }>({});
 
   const [workingDays, setWorkingDays] = useState({ total: 21, current: 13 });
   const [summaryData, setSummaryData] = useState({ 
-    goal: '0.0', 
-    performance: '0.0', 
-    achievementRate: '0.0', 
-    progressGap: '0.0',
+    goal: '0', 
+    performance: '0', 
+    achievementRate: '0', 
+    progressGap: '0',
     originalGoalVal: 0,
-    originalPerfVal: 0 
+    originalPerfVal: 0
   });
-  const [displayData, setDisplayData] = useState<DashboardData[]>([]);
+
   const [trendData, setTrendData] = useState<any[]>([]);
+  const [displayData, setDisplayData] = useState<DashboardData[]>([]);
+  const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
 
-  const now = useMemo(() => new Date(), []);
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  useEffect(() => {
+    initDashboard();
+  }, [profile?.company_id, year, month, unit]);
 
-  // Helper for unit conversion
+  useEffect(() => {
+    refreshDrillDownData();
+  }, [currentLevel, selectedIds, profile?.company_id, year, month, unit]);
+
   const formatValue = (val: number) => {
-    if (unit === 'billion') return (val / 100000000).toFixed(1);
-    if (unit === 'million') return (val / 1000000).toFixed(0);
-    return val.toLocaleString();
+    const num = Number(val);
+    if (unit === 'billion') return (num / 100000000).toFixed(1);
+    if (unit === 'million') return (num / 1000000).toLocaleString();
+    return num.toLocaleString();
   };
 
   const getUnitName = () => {
-    if (unit === 'billion') return '억';
-    if (unit === 'million') return '백만';
+    if (unit === 'billion') return '억원';
+    if (unit === 'million') return '백만원';
     return '원';
   };
 
-  // Redirect Super Admin if not in simulation mode
-  useEffect(() => {
-    if (!authLoading && effectiveRole === 'SUPER_ADMIN') {
-      navigate('/mng-voda-8a2b', { replace: true });
-    }
-  }, [authLoading, effectiveRole, navigate]);
-
-  useEffect(() => {
-    if (authLoading || effectiveRole === 'SUPER_ADMIN') return;
+  const initDashboard = async () => {
     if (!profile?.company_id) return;
-    fetchDashboardInitialData();
-  }, [profile?.company_id, unit, authLoading, effectiveRole]);
-
-  useEffect(() => {
-    if (authLoading || effectiveRole === 'SUPER_ADMIN') return;
-    refreshDrillDownData();
-  }, [currentLevel, selectedIds, authLoading, effectiveRole]);
-
-
-  const fetchDashboardInitialData = async () => {
     try {
       // 1. Working Days
-      const { data: wdData } = await supabase
-        .from('working_days_config')
-        .select('holidays')
-        .eq('company_id', profile?.company_id)
-        .eq('year', year)
-        .eq('month', month)
-        .maybeSingle();
+      const { data: wd } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month).single();
+      if (wd) setWorkingDays({ total: wd.total_days, current: Math.min(wd.total_days, 15) }); // Default to 15 for demo
 
-      let holidays: Date[] = [];
-      if (wdData && wdData.holidays) {
-        holidays = (wdData.holidays as string[]).map(h => parseISO(h));
-      }
-      const totalDays = SalesCalendarService.getTotalWorkingDays(year, month, holidays);
-      const currentDays = SalesCalendarService.getElapsedWorkingDays(year, month, now, holidays);
-      setWorkingDays({ total: totalDays, current: currentDays });
-
-      // 2. Summary (Company Total)
+      // 2. Summary (Current Month)
       const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
       const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
+      
+      const { data: records } = await supabase.from('sales_records').select('amount').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+      const { data: targets } = await supabase.from('sales_targets').select('target_amount').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month);
 
-      const [targetRes, perfRes] = await Promise.all([
-        supabase.from('sales_targets').select('target_amount').eq('company_id', profile?.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month),
-        supabase.from('sales_records').select('amount').eq('company_id', profile?.company_id).gte('sales_date', startDate).lte('sales_date', endDate)
-      ]);
+      const totalPerf = (records || []).reduce((acc, r) => acc + Number(r.amount), 0);
+      const totalGoal = (targets || []).reduce((acc, t) => acc + Number(t.target_amount), 0);
       
-      const totalGoal = (targetRes.data || []).reduce((acc, t) => acc + Number(t.target_amount), 0);
-      const totalPerf = (perfRes.data || []).reduce((acc, p) => acc + Number(p.amount), 0);
-      
-      const achievement = totalGoal > 0 ? (totalPerf / totalGoal) * 100 : 0;
-      
-      // Progress Gap: Performance - (Target * (Current Elapsed Days / Total Days))
-      const progressRate = totalDays > 0 ? (currentDays / totalDays) : 0;
-      const expectedGoalAtPoint = totalGoal * progressRate;
-      const gapValue = totalPerf - expectedGoalAtPoint;
+      const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
+      const expectedAtNow = totalGoal * progressLimit;
+      const gap = totalPerf - expectedAtNow;
 
       setSummaryData({
         goal: formatValue(totalGoal),
         performance: formatValue(totalPerf),
-        achievementRate: achievement.toFixed(1),
-        progressGap: (gapValue >= 0 ? '+' : '') + formatValue(gapValue),
+        achievementRate: totalGoal > 0 ? ((totalPerf / totalGoal) * 100).toFixed(1) : '0',
+        progressGap: (gap >= 0 ? '+' : '') + formatValue(gap),
         originalGoalVal: totalGoal,
         originalPerfVal: totalPerf
       });
 
-      // 3. Monthly Trend Data (This Year)
+      // 3. Year Trend
       const yearStart = `${year}-01-01`;
       const yearEnd = `${year}-12-31`;
-      
-      const { data: yearPerf } = await supabase
-        .from('sales_records')
-        .select('amount, sales_date')
-        .eq('company_id', profile?.company_id)
-        .gte('sales_date', yearStart)
-        .lte('sales_date', yearEnd);
+      const { data: yearPerf } = await supabase.from('sales_records').select('amount, sales_date').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd);
 
-      const monthMap = new Array(12).fill(0).map((_, i) => ({
-        month: `${i + 1}월`,
-        performance: 0,
-        goal: 0 // In a real app, fetch monthly targets too
-      }));
-
+      const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
       (yearPerf || []).forEach(p => {
         const m = new Date(p.sales_date).getMonth();
         monthMap[m].performance += Number(p.amount);
       });
 
-      setTrendData(monthMap.map(m => ({
-        ...m,
-        performance: Number(formatValue(m.performance))
-      })));
-
+      setTrendData(monthMap.map(m => ({ ...m, performance: Number(formatValue(m.performance)) })));
     } catch (err) {
-      console.error('Data Init Error:', err);
+      console.error('Init Error:', err);
     }
   };
 
@@ -177,40 +134,37 @@ const DashboardPage: React.FC = () => {
       let data: DashboardData[] = [];
       
       if (currentLevel === 0) {
-        // Level 0: Branches
-        const { data: branches } = await supabase.from('sales_branches').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
-        const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'BRANCH').eq('year', year).eq('month', month);
+        // Level 0: Divisions (사업부)
+        const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
+        const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month);
         const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
-        
-        // We need team -> branch mapping to aggregate branch performance
-        const { data: teamList } = await supabase.from('sales_teams').select('id, branch_id').eq('company_id', profile.company_id);
+        const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
 
-        data = (branches || []).map(b => {
-          const branchTarget = (targets || []).find(tg => tg.entity_id === b.id)?.target_amount || 0;
-          const branchTeamIds = (teamList || []).filter(t => t.branch_id === b.id).map(t => t.id);
-          const branchPerf = (perf || []).filter(p => branchTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + Number(p.amount), 0);
+        data = (divisions || []).map(d => {
+          const target = (targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0;
+          const divTeamIds = (teamList || []).filter(t => t.division_id === d.id).map(t => t.id);
+          const divisionPerf = (perf || []).filter(p => divTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + Number(p.amount), 0);
           
-          const achieve = branchTarget > 0 ? (branchPerf / Number(branchTarget)) * 100 : 0;
-          const expectedAtNow = Number(branchTarget) * progressLimit;
-          const gap = branchPerf - expectedAtNow;
+          const achieve = target > 0 ? (divisionPerf / Number(target)) * 100 : 0;
+          const expectedAtNow = Number(target) * progressLimit;
+          const gap = divisionPerf - expectedAtNow;
 
-          const dailyAvg = workingDays.current > 0 ? branchPerf / workingDays.current : 0;
+          const dailyAvg = workingDays.current > 0 ? divisionPerf / workingDays.current : 0;
           const expected = dailyAvg * workingDays.total;
-          const expectedAchieve = branchTarget > 0 ? (expected / Number(branchTarget)) * 100 : 0;
-          const expectedGap = expected - Number(branchTarget);
+          const expectedAchieve = target > 0 ? (expected / Number(target)) * 100 : 0;
+          const expectedGap = expected - Number(target);
 
           return {
-            id: b.id, name: b.name,
-            goal: formatValue(Number(branchTarget)), performance: formatValue(branchPerf), achieve: achieve.toFixed(1),
+            id: d.id, name: d.name,
+            goal: formatValue(Number(target)), performance: formatValue(divisionPerf), achieve: achieve.toFixed(1),
             gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-            expectedGoal: formatValue(Number(branchTarget)), expectedPerformance: formatValue(expected),
+            expectedGoal: formatValue(Number(target)), expectedPerformance: formatValue(expected),
             expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
           };
         });
       } 
-      else if (currentLevel === 1 && selectedIds.branchId) {
-        // Level 1: Teams in Branch
-        const { data: teams } = await supabase.from('sales_teams').select('*').eq('branch_id', selectedIds.branchId).order('display_order', { ascending: true });
+      else if (currentLevel === 1 && selectedIds.divisionId) {
+        const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
         const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month);
         const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate);
 
@@ -236,7 +190,6 @@ const DashboardPage: React.FC = () => {
         });
       }
       else if (currentLevel === 2 && selectedIds.teamId) {
-        // Level 2: Staff in Team
         const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
         const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month);
         const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate);
@@ -245,98 +198,50 @@ const DashboardPage: React.FC = () => {
           const staffTarget = (targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0;
           const staffPerf = (perf || []).filter(p => p.staff_id === s.id).reduce((acc, p) => acc + Number(p.amount), 0);
           const achieve = staffTarget > 0 ? (staffPerf / Number(staffTarget)) * 100 : 0;
-
-          // Gap calculation for row
           const expectedAtNow = Number(staffTarget) * progressLimit;
           const gap = staffPerf - expectedAtNow;
 
-          // Expected Closing Logic
           const dailyAvg = workingDays.current > 0 ? staffPerf / workingDays.current : 0;
           const expected = dailyAvg * workingDays.total;
           const expectedAchieve = staffTarget > 0 ? (expected / Number(staffTarget)) * 100 : 0;
           const expectedGap = expected - Number(staffTarget);
 
           return {
-            id: s.id,
-            name: s.name,
-            goal: formatValue(Number(staffTarget)),
-            performance: formatValue(staffPerf),
-            achieve: achieve.toFixed(1),
+            id: s.id, name: s.name,
+            goal: formatValue(Number(staffTarget)), performance: formatValue(staffPerf), achieve: achieve.toFixed(1),
             gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-            expectedGoal: formatValue(Number(staffTarget)),
-            expectedPerformance: formatValue(expected),
-            expectedAchieve: expectedAchieve.toFixed(1),
-            expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
+            expectedGoal: formatValue(Number(staffTarget)), expectedPerformance: formatValue(expected),
+            expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
           };
         });
       }
-      else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
-        // Level 4: Items for Customer/Staff
-        const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate);
-        
-        const customerMap = new Map<string, number>();
-        (perf || []).forEach(p => {
-          const current = customerMap.get(p.customer_name) || 0;
-          customerMap.set(p.customer_name, current + Number(p.amount));
-        });
-
-        data = Array.from(customerMap.entries()).map(([name, amount]) => ({
-          id: name,
-          name: name,
-          goal: '-',
-          performance: formatValue(amount),
-          achieve: '100',
-          gap: '-'
-        }));
+      else if (currentLevel === 3 && selectedIds.staffId) {
+        const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate);
+        const map = new Map<string, number>();
+        (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + Number(p.amount)));
+        data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
       }
-      else if (currentLevel === 3 && selectedIds.staffId && selectedIds.customerName) {
-        // Level 3: Items for Customer/Staff
+      else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
         const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate);
-        
-        const itemMap = new Map<string, number>();
-        (perf || []).forEach(p => {
-          const current = itemMap.get(p.item_name) || 0;
-          itemMap.set(p.item_name, current + Number(p.amount));
-        });
-
-        data = Array.from(itemMap.entries()).map(([name, amount]) => ({
-          id: name,
-          name: name,
-          goal: '-',
-          performance: formatValue(amount),
-          achieve: '100',
-          gap: '-'
-        }));
+        const map = new Map<string, number>();
+        (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + Number(p.amount)));
+        data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
       }
 
       setDisplayData(data);
     } catch (err) {
-      console.error('DrillDown Refresh Error:', err);
+      console.error('Refresh Error:', err);
     }
-  };
-
-  const getDashboardTitle = () => `${year}년 ${month}월 매출실적`;
-
-  const getMenuTitle = () => {
-    const path = location.pathname;
-    const isTeam = path.includes('team');
-    const base = isTeam ? '영업팀별' : '유형별';
-    let sub = '';
-    if (path.includes('goal')) sub = '목표대비';
-    else if (path.includes('yoy')) sub = '전년대비';
-    else if (path.includes('mom')) sub = '전월대비';
-    else if (path.includes('acc')) sub = '누계 실적';
-    return `${base} ${sub}`;
   };
 
   const getLabelByLevel = (level: number) => {
     switch(level) {
-      case 0: return '지점';
+      case 0: return '사업부';
       case 1: return '영업팀';
       case 2: return '영업사원';
       case 3: return '거래처';
       case 4: return '품목';
-      default: return '지점';
+      default: return '사업부';
     }
   };
 
@@ -351,12 +256,10 @@ const DashboardPage: React.FC = () => {
   const handleRowClick = (id: string, name: string) => {
     if (currentLevel < 4) {
       setBreadcrumbs([...breadcrumbs, { id, name, level: currentLevel }]);
-      
-      if (currentLevel === 0) setSelectedIds({ ...selectedIds, branchId: id });
+      if (currentLevel === 0) setSelectedIds({ ...selectedIds, divisionId: id });
       else if (currentLevel === 1) setSelectedIds({ ...selectedIds, teamId: id });
       else if (currentLevel === 2) setSelectedIds({ ...selectedIds, staffId: id });
       else if (currentLevel === 3) setSelectedIds({ ...selectedIds, customerName: name });
-      
       setCurrentLevel(currentLevel + 1);
     }
   };
@@ -370,9 +273,8 @@ const DashboardPage: React.FC = () => {
       const targetBcs = breadcrumbs.slice(0, idx + 1);
       setBreadcrumbs(targetBcs);
       setCurrentLevel(idx + 1);
-      
       const newIds: any = {};
-      if (idx >= 0) newIds.branchId = breadcrumbs[0].id;
+      if (idx >= 0) newIds.divisionId = breadcrumbs[0].id;
       if (idx >= 1) newIds.teamId = breadcrumbs[1].id;
       if (idx >= 2) newIds.staffId = breadcrumbs[2].id;
       if (idx >= 3) newIds.customerName = breadcrumbs[3].name;
@@ -383,8 +285,8 @@ const DashboardPage: React.FC = () => {
   return (
     <div className={`${styles.page} fade-in`}>
       <DashboardHeader 
-        title={getDashboardTitle()}
-        subtitle={getMenuTitle()}
+        title={`${year}년 ${month}월 사업부별 매출실적`}
+        subtitle="사업부별 분석 마감 현황"
         totalWorkingDays={workingDays.total}
         currentWorkingDays={workingDays.current}
         isExpectedClosingOn={isExpectedClosingOn}
@@ -393,7 +295,6 @@ const DashboardPage: React.FC = () => {
         onUnitChange={setUnit}
       />
 
-      {/* Monthly Trend Chart */}
       <div className={styles.chartCard}>
         <div className={styles.chartHeader}>
           <h3 className={styles.chartTitle}>월별 매출 추이 ({year}년)</h3>
@@ -409,30 +310,10 @@ const DashboardPage: React.FC = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="month" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94A3B8', fontSize: 12}}
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94A3B8', fontSize: 12}}
-              />
-              <Tooltip 
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="performance" 
-                stroke="#ed8936" 
-                strokeWidth={3}
-                fillOpacity={1} 
-                fill="url(#colorPerf)" 
-                name="실적"
-              />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} />
+              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+              <Area type="monotone" dataKey="performance" stroke="#ed8936" strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" name="실적" />
             </AreaChart>
           </ResponsiveContainer>
         </div>

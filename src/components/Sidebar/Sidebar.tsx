@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
   // 1. Dashboard Menus (For Company Admin and Regular Users)
   if (isCompanyAdmin || isUser) {
     menuSections.push({
-      title: "영업팀별 실적",
+      title: "사업부별 실적",
       items: [
         { icon: Target, label: "목표 대비", path: "/team/goal" },
         { icon: History, label: "전년 대비", path: "/team/yoy" },

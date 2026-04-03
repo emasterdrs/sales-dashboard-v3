@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Database, Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, AlertTriangle, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { parse, format, isValid } from 'date-fns';
 import { supabase } from '../../api/supabase';
@@ -14,22 +14,19 @@ interface UploadResult {
 }
 
 const DataUploadPage: React.FC = () => {
-  const { profile, effectiveRole, fetchProfile } = useAuth();
+  const { profile, fetchProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   
-  // Advanced mapping for 3-level validation
-  const [orgMap, setOrgMap] = useState<{
-    branches: Set<string>;
-    teamsByBranch: Record<string, Set<string>>;
-    staffByBranchTeam: Record<string, { id: string; teamId: string }>;
-  }>({
-    branches: new Set(),
-    teamsByBranch: {},
-    staffByBranchTeam: {}
+  // Advanced mapping for 3-level validation & provisioning
+  const [orgMap, setOrgMap] = useState<any>({
+    divisions: {}, // name -> id
+    teams: {}, // divisionId_teamName -> id
+    staff: {}, // teamId_staffName -> id
+    categories: {} // name -> id
   });
 
   const [resetConfirmation, setResetConfirmation] = useState('');
@@ -42,39 +39,24 @@ const DataUploadPage: React.FC = () => {
   const fetchOrgInfo = async () => {
     if (!profile?.company_id) return;
     try {
-      const { data: branches } = await supabase.from('sales_branches').select('id, name').eq('company_id', profile.company_id);
-      const { data: teams } = await supabase.from('sales_teams').select('id, name, branch_id').eq('company_id', profile.company_id);
+      const { data: divisions } = await supabase.from('sales_divisions').select('id, name').eq('company_id', profile.company_id);
+      const { data: teams } = await supabase.from('sales_teams').select('id, name, division_id').eq('company_id', profile.company_id);
       const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map(t => t.id) || []);
+      const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id);
       
-      const bSet = new Set<string>();
-      const tMap: Record<string, Set<string>> = {};
-      const sMap: Record<string, { id: string; teamId: string }> = {};
+      const divMap: any = {};
+      divisions?.forEach(d => divMap[d.name.trim()] = d.id);
 
-      const branchIdToName: Record<string, string> = {};
-      branches?.forEach(b => {
-        const bName = b.name.trim();
-        bSet.add(bName);
-        branchIdToName[b.id] = bName;
-      });
+      const teamMap: any = {};
+      teams?.forEach(t => teamMap[`${t.division_id}_${t.name.trim()}`] = t.id);
 
-      const teamIdToInfo: Record<string, { name: string; branchName: string }> = {};
-      teams?.forEach(t => {
-        const branchName = branchIdToName[t.branch_id || ''] || '미지정';
-        const teamName = t.name.trim();
-        if (!tMap[branchName]) tMap[branchName] = new Set();
-        tMap[branchName].add(teamName);
-        teamIdToInfo[t.id] = { name: teamName, branchName };
-      });
+      const staffMap: any = {};
+      staff?.forEach(s => staffMap[`${s.team_id}_${s.name.trim()}`] = s.id);
 
-      staff?.forEach(s => {
-        const info = teamIdToInfo[s.team_id];
-        if (info) {
-          const key = `${info.branchName}_${info.name}_${s.name.trim()}`;
-          sMap[key] = { id: s.id, teamId: s.team_id };
-        }
-      });
+      const catMap: any = {};
+      cats?.forEach(c => catMap[c.name.trim()] = c.id);
 
-      setOrgMap({ branches: bSet, teamsByBranch: tMap, staffByBranchTeam: sMap });
+      setOrgMap({ divisions: divMap, teams: teamMap, staff: staffMap, categories: catMap });
     } catch (err) {
       console.error('Error fetching org info:', err);
     }
@@ -94,7 +76,6 @@ const DataUploadPage: React.FC = () => {
       let dateValue = row[0];
       let cleanDate = '';
 
-      // 1. Flexible Date Parsing
       if (typeof dateValue === 'number') {
         const dateObj = XLSX.SSF.parse_date_code(dateValue);
         cleanDate = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
@@ -113,7 +94,7 @@ const DataUploadPage: React.FC = () => {
       return {
         _rowIndex: index + 2,
         date: cleanDate,
-        branchName: row[1] ? String(row[1]).trim() : '',
+        divisionName: row[1] ? String(row[1]).trim() : '',
         teamName: row[2] ? String(row[2]).trim() : '',
         name: row[3] ? String(row[3]).trim() : '',
         customer: row[4] ? String(row[4]).trim() : '',
@@ -124,31 +105,18 @@ const DataUploadPage: React.FC = () => {
   };
 
   const downloadXlsxTemplate = () => {
-    const headers = ["날짜", "지점명", "팀명", "성명", "거래처명", "품목명", "매출액"];
+    const headers = ["날짜", "사업부", "팀명", "성명", "거래처명", "품목명", "매출액"];
     const today = format(new Date(), 'yyyy-MM-dd');
-    
-    const samples: any[][] = [];
-    Object.keys(orgMap.staffByBranchTeam).slice(0, 5).forEach(key => {
-      const parts = key.split('_');
-      samples.push([today, parts[0], parts[1], parts[2], "예시_거래처", "예시_품목", "1000000"]);
-    });
-
-    if (samples.length === 0) {
-      samples.push([today, "본사", "영업1팀", "홍길동", "삼성전자", "반도체수주", "50000000"]);
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...samples]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, [today, "영업사업부", "영업1팀", "홍길동", "예시거래처", "예시품목", "1000000"]]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "양식");
-    XLSX.writeFile(wb, `voda_upload_template_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    XLSX.writeFile(wb, `voda_upload_template.xlsx`);
   };
 
   const startUpload = async () => {
     if (!profile?.company_id && fetchProfile) await fetchProfile();
     if (!file) { alert('파일을 선택해 주세요.'); return; }
-
-    const canUpload = profile?.company_id || effectiveRole === 'SUPER_ADMIN';
-    if (!canUpload) { alert('기업 정보가 확인되지 않습니다.'); return; }
+    if (!profile?.company_id) { alert('기업 정보가 확인되지 않습니다.'); return; }
 
     setIsUploading(true);
     setResult(null);
@@ -157,48 +125,70 @@ const DataUploadPage: React.FC = () => {
     try {
       const rows = await parseExcelOrCsv(file);
       if (rows.length === 0) {
-        setResult({ total: 0, success: 0, failed: 0, errors: ["파일에 데이터가 없거나 형식이 잘못되었습니다."] });
+        setResult({ total: 0, success: 0, failed: 0, errors: ["파일에 데이터가 없습니다."] });
         setIsUploading(false); return;
       }
 
       const errors: string[] = [];
       const validRecords: any[] = [];
-      const currentCompanyId = profile?.company_id;
+      const currentOrg = { ...orgMap };
 
-      for (const row of rows as any[]) {
-        const rowNum = (row as any)._rowIndex;
-        
-        if (!row.date) { errors.push(`${rowNum}행: 날짜 형식이 올바르지 않습니다.`); continue; }
-        if (!row.branchName || !row.teamName || !row.name) { errors.push(`${rowNum}행: 지점, 팀, 사원명은 필수입니다.`); continue; }
+      // Ensure '미분류' (Uncategorized) exists
+      if (!currentOrg.categories['미분류']) {
+        const { data: newCat } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: '미분류', display_order: 999 }).select().single();
+        if (newCat) currentOrg.categories['미분류'] = newCat.id;
+      }
 
-        if (!orgMap.branches.has(row.branchName)) {
-          errors.push(`${rowNum}행: 존재하지 않는 지점(${row.branchName})`);
+      for (let i = 0; i < rows.length; i++) {
+        const row: any = rows[i];
+        const rowNum = row._rowIndex;
+        setUploadProgress(Math.round((i / rows.length) * 50)); // First 50% for analysis & provisioning
+
+        if (!row.date || !row.divisionName || !row.teamName || !row.name) {
+          errors.push(`${rowNum}행: 필수 정보 누락(날짜, 사업부, 팀, 성명)`);
           continue;
         }
 
-        const branchTeams = orgMap.teamsByBranch[row.branchName];
-        if (!branchTeams || !branchTeams.has(row.teamName)) {
-          errors.push(`${rowNum}행: ${row.branchName} 지점에 ${row.teamName} 팀이 존재하지 않음`);
-          continue;
+        // 1. Division Provisioning
+        let divisionId = currentOrg.divisions[row.divisionName];
+        if (!divisionId) {
+          const { data: newDiv } = await supabase.from('sales_divisions').insert({ company_id: profile.company_id, name: row.divisionName, display_order: Object.keys(currentOrg.divisions).length }).select().single();
+          if (newDiv) {
+            divisionId = newDiv.id;
+            currentOrg.divisions[row.divisionName] = divisionId;
+          } else { errors.push(`${rowNum}행: 사업부 생성 실패`); continue; }
         }
 
-        const lookupKey = `${row.branchName}_${row.teamName}_${row.name}`;
-        const staffMapping = orgMap.staffByBranchTeam[lookupKey];
-        if (!staffMapping) {
-          errors.push(`${rowNum}행: ${row.teamName} 팀에 ${row.name} 사원이 존재하지 않음`);
-          continue;
+        // 2. Team Provisioning
+        const teamKey = `${divisionId}_${row.teamName}`;
+        let teamId = currentOrg.teams[teamKey];
+        if (!teamId) {
+          const { data: newTeam } = await supabase.from('sales_teams').insert({ company_id: profile.company_id, division_id: divisionId, name: row.teamName, display_order: Object.keys(currentOrg.teams).length }).select().single();
+          if (newTeam) {
+            teamId = newTeam.id;
+            currentOrg.teams[teamKey] = teamId;
+          } else { errors.push(`${rowNum}행: 팀 생성 실패`); continue; }
+        }
+
+        // 3. Staff Provisioning
+        const staffKey = `${teamId}_${row.name}`;
+        let staffId = currentOrg.staff[staffKey];
+        if (!staffId) {
+          const { data: newStaff } = await supabase.from('sales_staff').insert({ team_id: teamId, name: row.name, display_order: Object.keys(currentOrg.staff).length }).select().single();
+          if (newStaff) {
+            staffId = newStaff.id;
+            currentOrg.staff[staffKey] = staffId;
+          } else { errors.push(`${rowNum}행: 사원 생성 실패`); continue; }
         }
 
         const cleanAmount = parseInt(String(row.amountStr).replace(/[^0-9]/g, ''));
-        if (isNaN(cleanAmount) || cleanAmount === 0) {
-          errors.push(`${rowNum}행: 매출액 확인 필요`);
-          continue;
-        }
+        if (isNaN(cleanAmount)) { errors.push(`${rowNum}행: 매출액 오류`); continue; }
 
         validRecords.push({
-          company_id: currentCompanyId,
-          staff_id: staffMapping.id,
-          team_id: staffMapping.teamId,
+          company_id: profile.company_id,
+          staff_id: staffId,
+          team_id: teamId,
+          category_id: currentOrg.categories['미분류'], // Default to '미분류' as requested
           customer_name: row.customer || '미지정',
           item_name: row.item || '미지정',
           amount: cleanAmount,
@@ -206,32 +196,30 @@ const DataUploadPage: React.FC = () => {
         });
       }
 
+      setOrgMap(currentOrg); // Update local map with new entities
+
       let successCount = 0;
       if (validRecords.length > 0) {
-        const CHUNK_SIZE = 500;
-        for (let i = 0; i < validRecords.length; i += CHUNK_SIZE) {
-          const chunk = validRecords.slice(i, i + CHUNK_SIZE);
-          const { error } = await supabase.from('sales_records').upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-          if (error) errors.push(`저장 오류: ${error.message}`);
-          else successCount += chunk.length;
-          setUploadProgress(Math.round(((i + chunk.length) / validRecords.length) * 100));
-        }
+        const { error } = await supabase.from('sales_records').upsert(validRecords, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
+        if (error) errors.push(`저장 오류: ${error.message}`);
+        else successCount = validRecords.length;
       }
 
       setResult({ total: rows.length, success: successCount, failed: rows.length - successCount, errors });
-      if (successCount > 0) { setFile(null); alert(`${successCount}건 처리 완료`); }
-    } catch (err) { alert('업로드 중 오류 발생'); } finally { setIsUploading(false); setUploadProgress(0); }
+      setUploadProgress(100);
+      if (successCount > 0) { setFile(null); alert('업로드 및 조직 자동 생성이 완료되었습니다.'); }
+    } catch (err) { alert('처리 중 오류 발생'); } finally { setIsUploading(false); }
   };
 
   const resetAllData = async () => {
     if (!profile?.company_id) return;
-    if (resetConfirmation !== '데이터 초기화 확인') return alert('문구를 다시 확인해주세요.');
+    if (resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인 필요');
     if (!confirm('초기화하시겠습니까?')) return;
     setIsResetting(true);
     try {
       await supabase.from('sales_records').delete().eq('company_id', profile.company_id);
       await supabase.from('sales_targets').delete().eq('company_id', profile.company_id);
-      alert('완료'); setResetConfirmation('');
+      alert('초기화 완료'); setResetConfirmation('');
     } catch (err: any) { alert(err.message); } finally { setIsResetting(false); }
   };
 
@@ -239,26 +227,23 @@ const DataUploadPage: React.FC = () => {
     <div className={`${styles.container} fade-in`}>
       <header className={styles.header}>
         <div className={styles.titleArea}>
-          <div className={styles.iconWrapper}><Database size={28} /></div>
+          <div className={styles.iconWrapper}><Zap size={28} className={styles.zapIcon} /></div>
           <div>
-            <h1 className={styles.title}>데이터 인텔리전트 업로드</h1>
-            <p className={styles.subtitle}>계층 구조(지점-팀-사원) 교차 검증을 지원합니다.</p>
+            <h1 className={styles.title}>인텔리전트 조직 자동 매핑 업로드</h1>
+            <p className={styles.subtitle}>사업부, 팀, 사원이 없어도 엑셀만 올리면 자동으로 생성되고 매핑됩니다.</p>
           </div>
         </div>
       </header>
 
       <div className={styles.uploadCard}>
         {!file ? (
-          <div className={styles.dropzone} 
-               onDragOver={(e) => e.preventDefault()} 
-               onDrop={(e) => { e.preventDefault(); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]); }} 
-               onClick={() => fileInputRef.current?.click()}>
+          <div className={styles.dropzone} onClick={() => fileInputRef.current?.click()}>
             <Upload size={48} className={styles.dropzoneIcon} />
             <div className={styles.dropzoneText}>
-              <p>파일을 끌어다 놓거나 클릭하여 선택하세요.</p>
-              <span>Excel(.xlsx) 및 CSV 지원</span>
+              <p>파일을 선택하거나 드래그하세요.</p>
+              <span>Excel(.xlsx) 지원</span>
             </div>
-            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".csv, .xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
         ) : (
           <div className={styles.fileInfo}>
@@ -268,21 +253,21 @@ const DataUploadPage: React.FC = () => {
         )}
 
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>업로드 가이드</h3>
+          <h3 className={styles.instructionTitle}>⚡ 자동 조직 생성 가이드 (Auto-Provisioning)</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>1. 공백 제거:</b> 모든 정보의 앞뒤 공백은 자동 제거됩니다.</li>
-            <li className={styles.instructionItem}><b>2. 교차 검증:</b> 지점-팀-사원 관계가 설정과 맞아야 업로드됩니다.</li>
-            <li className={styles.instructionItem}><b>3. 날짜 형식:</b> YYYY-MM-DD, YYYY.MM.DD 등 스마트 인식을 지원합니다.</li>
-            <li className={styles.instructionItem}><b>4. 순서:</b> 날짜, 지점, 팀, 성명, 거래처, 품목, 금액 (7개)</li>
+            <li className={styles.instructionItem}><b>사업부/팀/사원:</b> 존재하지 않는 조직은 업로드 시 자동으로 생성됩니다.</li>
+            <li className={styles.instructionItem}><b>카테고리:</b> 모든 품목은 자동으로 '미분류' 카테고리에 할당됩니다.</li>
+            <li className={styles.instructionItem}><b>날짜 인식:</b> YYYY.MM.DD 등 다양한 형식을 스마트하게 처리합니다.</li>
+            <li className={styles.instructionItem}><b>순서:</b> 날짜, 사업부, 팀명, 성명, 거래처명, 품목명, 매출액 (7개 고정)</li>
           </ul>
           <button className={styles.downloadTemplate} onClick={downloadXlsxTemplate}>
-            <Download size={14} /> 시스템 맞춤 템플릿 다운로드 (.xlsx)
+            <Download size={14} /> 표준 엑셀 양식 다운로드 (.xlsx)
           </button>
         </div>
 
         <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : <CheckCircle2 size={20} />}
-          {isUploading ? `업로드 중... ${uploadProgress}%` : '데이터 분석 및 업로드'}
+          {isUploading ? `조직 분석 및 생성 중... ${uploadProgress}%` : '엑셀 업로드 및 조직 자동 생성 시작'}
         </button>
 
         {isUploading && (
@@ -292,17 +277,16 @@ const DataUploadPage: React.FC = () => {
         )}
 
         {result && (
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: 24, width: '100%' }}>
             <div className={styles.statsArea}>
               <div className={styles.statCard}><span className={styles.statLabel}>총 건수</span><span className={styles.statValue}>{result.total}</span></div>
-              <div className={`${styles.statCard} ${styles.success}`}><span className={styles.statLabel}>성공</span><span className={styles.statValue} style={{color: '#10B981'}}>{result.success}</span></div>
-              <div className={styles.statCard}><span className={styles.statLabel}>실패</span><span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span></div>
+              <div className={`${styles.statCard} ${styles.success}`}><span className={styles.statLabel}>저장 성공</span><span className={styles.statValue} style={{color: '#10B981'}}>{result.success}</span></div>
+              <div className={styles.statCard}><span className={styles.statLabel}>분석 실패</span><span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span></div>
             </div>
             {result.errors.length > 0 && (
               <div className={styles.errorArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><AlertCircle size={18} color="#991B1B" /><h4>오류 내역</h4></div>
-                <ul className={styles.errorList}>{result.errors.slice(0, 30).map((err, idx) => <li key={idx}>{err}</li>)}</ul>
-                {result.errors.length > 30 && <p className={styles.moreErrors}>외 {result.errors.length - 30}건 더 있음...</p>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><AlertCircle size={18} color="#991B1B" /><h4>상세 내력</h4></div>
+                <ul className={styles.errorList}>{result.errors.slice(0, 20).map((err, idx) => <li key={idx}>{err}</li>)}</ul>
               </div>
             )}
           </div>
@@ -310,12 +294,10 @@ const DataUploadPage: React.FC = () => {
       </div>
 
       <div className={styles.dangerZone}>
-        <div className={styles.dangerHeader}><AlertTriangle size={24} color="#EF4444" /><h2 className={styles.dangerTitle}>위험 구역</h2></div>
+        <div className={styles.dangerHeader}><AlertTriangle size={24} color="#EF4444" /><h2 className={styles.dangerTitle}>데이터 초기화</h2></div>
         <div className={styles.resetControl}>
-          <input type="text" className={styles.resetInput} placeholder='"데이터 초기화 확인" 입력 시에만 활성화' value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} />
-          <button className={styles.resetBtn} disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting} onClick={resetAllData}>
-            {isResetting ? <Loader2 className={styles.animateSpin} size={18} /> : <Trash2 size={18} />} 초기화
-          </button>
+          <input type="text" className={styles.resetInput} placeholder='"데이터 초기화 확인" 입력' value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} />
+          <button className={styles.resetBtn} disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting} onClick={resetAllData}>삭제</button>
         </div>
       </div>
     </div>

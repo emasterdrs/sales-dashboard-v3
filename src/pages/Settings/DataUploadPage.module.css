@@ -375,6 +375,11 @@
   cursor: not-allowed;
 }
 
+.zapIcon {
+  color: #f6ad55;
+  filter: drop-shadow(0 0 8px rgba(246, 173, 85, 0.4));
+}
+
 .moreErrors {
   font-size: 11px;
   color: #64748B;
