@@ -132,138 +132,169 @@ const DataUploadPage: React.FC = () => {
 
       const local = { ...orgMap };
 
-      // Phase 1b: Enterprise Provisioning (v3.0 Idempotent Fetch-Diff-Insert)
-      // Since Org tables lack unique constraints on (name, cid), we must Fetch -> Diff -> Insert
+      // Phase 1b: Enterprise Provisioning (v3.2 Intelligent Sync & Repair)
       setProgress(15);
       
+      const normalize = (s: string) => s.replace(/\s+/g, ''); // Space-agnostic normalization
+
       // 1. Synchronize Divisions
       const existingDivs = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
-      existingDivs.forEach(d => local.divisions[d.name.trim()] = d.id);
+      existingDivs.forEach(d => {
+          local.divisions[d.name.trim()] = d.id;
+          local.divisions[`_norm_${normalize(d.name)}`] = d.id;
+      });
       
-      const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d.trim()]);
+      const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d] && !local.divisions[`_norm_${normalize(d)}`]);
       if (missingDivNames.length > 0) {
-          const { data: insertedDivs, error: divErr } = await supabase.from('sales_divisions').insert(missingDivNames.map(name => ({ company_id: cid, name }))).select();
+          const { data: insertedDivs, error: divErr } = await supabase.from('sales_divisions').insert(missingDivNames.map(name => ({ company_id: cid, name: name.trim() }))).select();
           if (divErr) console.error('Division Insert Error:', divErr);
-          insertedDivs?.forEach(d => local.divisions[d.name.trim()] = d.id);
+          insertedDivs?.forEach(d => {
+              local.divisions[d.name.trim()] = d.id;
+              local.divisions[`_norm_${normalize(d.name)}`] = d.id;
+          });
       }
       setProgress(25);
 
       // 2. Synchronize Teams
       const existingTeams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
-      existingTeams.forEach(t => local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id);
+      existingTeams.forEach(t => {
+          local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id;
+          local.teamMap[`${t.division_id}_norm_${normalize(t.name)}`] = t.id;
+      });
       
       const missingTeamKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}`))).filter(key => {
           const [dName, tName] = key.split('|');
-          const dId = local.divisions[dName.trim()];
-          return dId && tName && !local.teamMap[`${dId}_${tName.trim()}`];
+          const dId = local.divisions[dName] || local.divisions[`_norm_${normalize(dName)}`];
+          return dId && tName && !local.teamMap[`${dId}_${tName}`] && !local.teamMap[`${dId}_norm_${normalize(tName)}`];
       });
       if (missingTeamKeys.length > 0) {
           const teamInserts = missingTeamKeys.map(key => {
               const [dName, tName] = key.split('|');
-              const divId = local.divisions[dName.trim()];
+              const divId = local.divisions[dName] || local.divisions[`_norm_${normalize(dName)}`];
               return divId ? { company_id: cid, division_id: divId, name: tName.trim() } : null;
           }).filter(Boolean);
           
           if (teamInserts.length > 0) {
               const { data: insertedTeams, error: teamErr } = await supabase.from('sales_teams').insert(teamInserts as any).select();
               if (teamErr) console.error('Team Insert Error:', teamErr);
-              insertedTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id);
+              insertedTeams?.forEach(t => {
+                  local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id;
+                  local.teamMap[`${t.division_id}_norm_${normalize(t.name)}`] = t.id;
+              });
           }
       }
       setProgress(40);
 
       // 3. Synchronize Staff
-      // Fetch all staff for found teams to populate map
       const tIds = Object.values(local.teamMap);
       if (tIds.length > 0) {
-          // Chunk staff fetching because .in() has limits
           const S_CHUNK = 100;
           for (let i = 0; i < tIds.length; i += S_CHUNK) {
               const chunkTids = tIds.slice(i, i + S_CHUNK);
               const staff = await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', chunkTids));
-              staff.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
+              staff.forEach(s => {
+                  local.staffMap[`${s.team_id}_${s.name.trim()}`] = s.id;
+                  local.staffMap[`${s.team_id}_norm_${normalize(s.name)}`] = s.id;
+              });
           }
       }
       
       const missingStaffKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}|${r.name}`))).filter(key => {
           const [dName, tName, sName] = key.split('|');
-          const dId = local.divisions[dName.trim()];
-          const tId = dId ? local.teamMap[`${dId}_${tName.trim()}`] : null;
-          return tId && sName && !local.staffMap[`${tId}_${sName.trim()}`];
+          const dId = local.divisions[dName] || local.divisions[`_norm_${normalize(dName)}`];
+          const tId = dId ? (local.teamMap[`${dId}_${tName}`] || local.teamMap[`${dId}_norm_${normalize(tName)}`]) : null;
+          return tId && sName && !local.staffMap[`${tId}_${sName}`] && !local.staffMap[`${tId}_norm_${normalize(sName)}`];
       });
       if (missingStaffKeys.length > 0) {
           const staffInserts = missingStaffKeys.map(key => {
               const [dName, tName, sName] = key.split('|');
-              const tId = local.teamMap[`${local.divisions[dName.trim()]}_${tName.trim()}`];
+              const dId = local.divisions[dName] || local.divisions[`_norm_${normalize(dName)}`];
+              const tId = dId ? (local.teamMap[`${dId}_${tName}`] || local.teamMap[`${dId}_norm_${normalize(tName)}`]) : null;
               return tId ? { team_id: tId, name: sName.trim() } : null;
           }).filter(Boolean);
           
           if (staffInserts.length > 0) {
               const { data: insertedStaff, error: sErr } = await supabase.from('sales_staff').insert(staffInserts as any).select();
               if (sErr) console.error('Staff Insert Error:', sErr);
-              insertedStaff?.forEach(s => local.staffMap[`${s.team_id}_${s.name.trim()}`] = s.id);
+              insertedStaff?.forEach(s => {
+                  local.staffMap[`${s.team_id}_${s.name.trim()}`] = s.id;
+                  local.staffMap[`${s.team_id}_norm_${normalize(s.name)}`] = s.id;
+              });
           }
       }
       setProgress(55);
 
       // 4. Synchronize Categories
       const existingCats = await fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid));
-      existingCats.forEach(c => local.catMap[c.name.trim()] = c.id);
+      existingCats.forEach(c => {
+          local.catMap[c.name.trim()] = c.id;
+          local.catMap[`_norm_${normalize(c.name)}`] = c.id;
+      });
 
-      const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c.trim()]);
-      if (missingCatNames.length > 0) {
-          const { data: insertedCats, error: cErr } = await supabase.from('product_categories').insert(missingCatNames.map(name => ({ company_id: cid, name }))).select();
-          if (cErr) console.error('Category Insert Error:', cErr);
-          insertedCats?.forEach(c => local.catMap[c.name.trim()] = c.id);
+      const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c] && !local.catMap[`_norm_${normalize(c)}`]);
+      // Ensure '999. 미분류' is included if missing from DB
+      if (!local.catMap['999. 미분류'] && !local.catMap['_norm_999.미분류']) {
+          if (!missingCatNames.includes('999. 미분류')) missingCatNames.push('999. 미분류');
       }
-      
+
+      if (missingCatNames.length > 0) {
+          const { data: insertedCats, error: cErr } = await supabase.from('product_categories').insert(missingCatNames.map(name => ({ company_id: cid, name: name.trim() }))).select();
+          if (cErr) console.error('Category Insert Error:', cErr);
+          insertedCats?.forEach(c => {
+              local.catMap[c.name.trim()] = c.id;
+              local.catMap[`_norm_${normalize(c.name)}`] = c.id;
+          });
+      }
       setProgress(65);
 
-      // Phase 2: Record Preparation & Aggregation (v2.8 Client-side Summer)
+      // Phase 2: Record Preparation & Aggregation (v3.2 Space-Agnostic Matcher)
       const aggMap = new Map<string, any>();
       rows.forEach(r => {
-          const dId = local.divisions[r.div];
-          const tId = dId ? local.teamMap[`${dId}_${r.team}`] : null;
-          const sId = tId ? local.staffMap[`${tId}_${r.name}`] : null;
-          const cId = local.catMap[r.cat] || local.catMap['999. 미분류'];
+          const dId = local.divisions[r.div] || local.divisions[`_norm_${normalize(r.div)}`];
+          const tId = dId ? (local.teamMap[`${dId}_${r.team}`] || local.teamMap[`${dId}_norm_${normalize(r.team)}`]) : null;
+          const sId = tId ? (local.staffMap[`${tId}_${r.name}`] || local.staffMap[`${tId}_norm_${normalize(r.name)}`]) : null;
+          
+          let cId = local.catMap[r.cat] || local.catMap[`_norm_${normalize(r.cat)}`];
+          if (!cId) cId = local.catMap['999. 미분류'] || local.catMap['_norm_999.미분류'] || local.catMap['기타'];
+
           if (!r.date || !sId) {
               if(!r.date) errList.push(`${r._row}행: 날짜 파싱 실패`);
               else errList.push(`${r._row}행: 사원 매칭 실패(${r.div}/${r.team}/${r.name})`);
               return;
           }
           
-          // Unique Key for Aggregation: staff|customer|item|date
           const key = `${sId}|${r.customer}|${r.item}|${r.date}`;
           if (aggMap.has(key)) {
               const existing = aggMap.get(key);
               existing.amount += r.amount;
           } else {
               aggMap.set(key, { 
-                  company_id: cid, 
-                  staff_id: sId, 
-                  team_id: tId, 
-                  category_id: cId || null, 
-                  customer_name: r.customer, 
-                  item_name: r.item, 
-                  amount: r.amount, 
-                  sales_date: r.date 
+                  company_id: cid, staff_id: sId, team_id: tId, category_id: cId || null, 
+                  customer_name: r.customer, item_name: r.item, amount: r.amount, sales_date: r.date 
               });
           }
       });
       const finalRecs = Array.from(aggMap.values());
-
       setOrgMap(local);
       setProgress(70);
 
-      // Phase 3: Final Batch Upsert (v2.9 Unlimited Scalability)
+      // Phase 3: Final Batch Upsert (v3.2 High-Performance Streamer)
       let sc = 0; const CHUNK = 1000;
       const totalRecs = finalRecs.length;
+      if (totalRecs === 0 && rows.length > 0) throw new Error("유효한 실적 데이터가 없습니다. 사원 정보와 데이터 형식을 확인해주세요.");
+
       for (let i = 0; i < totalRecs; i += CHUNK) {
-          const { error: uErr } = await supabase.from('sales_records').upsert(finalRecs.slice(i, i + CHUNK), { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-          if (uErr) errList.push(`저장 오류: ${uErr.message}`); 
-          else sc += finalRecs.slice(i, i + CHUNK).length;
+          const chunk = finalRecs.slice(i, i + CHUNK);
+          const { error: uErr } = await supabase.from('sales_records').upsert(chunk, { 
+              onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' 
+          });
+          if (uErr) {
+              console.error('Record Upsert Error:', uErr);
+              errList.push(`저장 오류 (청크 ${Math.floor(i/CHUNK) + 1}): ${uErr.message}`); 
+          } else sc += chunk.length;
+          
           setProgress(70 + Math.floor((i / totalRecs) * 30));
-          await new Promise(r => setTimeout(r, 50)); // Throttling for stability (50ms)
+          await new Promise(r => setTimeout(r, 10)); // Throttling for stability (10ms)
       }
 
       setResult({ total: rows.length, success: sc, failed: rows.length - sc, errors: errList });
