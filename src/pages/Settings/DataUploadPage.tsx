@@ -210,7 +210,7 @@ const DataUploadPage: React.FC = () => {
               const [dName, tName, sName] = key.split('|');
               const dId = local.divisions[dName] || local.divisions[`_norm_${normalize(dName)}`];
               const tId = dId ? (local.teamMap[`${dId}_${tName}`] || local.teamMap[`${dId}_norm_${normalize(tName)}`]) : null;
-              return tId ? { team_id: tId, name: sName.trim() } : null;
+              return tId ? { company_id: cid, team_id: tId, name: sName.trim() } : null;
           }).filter(Boolean);
           
           if (staffInserts.length > 0) {
