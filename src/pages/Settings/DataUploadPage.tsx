@@ -117,13 +117,18 @@ const DataUploadPage: React.FC = () => {
 
       const local = { ...orgMap };
 
-      // Phase 1b: Batch Provisioning (v2.6 High-Speed Idempotent)
+      // Phase 1b: Resilient Batch Provisioning (v2.7)
+      const EN_CHUNK = 100; // Entity Insert Chunk
       
       // 1. Divisions
       const uniqueDivs = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d]);
       if (uniqueDivs.length > 0) {
-          const { data: newDivs } = await supabase.from('sales_divisions').upsert(uniqueDivs.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
-          newDivs?.forEach(d => local.divisions[d.name] = d.id);
+          for (let i = 0; i < uniqueDivs.length; i += EN_CHUNK) {
+              const chunk = uniqueDivs.slice(i, i + EN_CHUNK);
+              const { data, error } = await supabase.from('sales_divisions').upsert(chunk.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
+              if (error) console.error('Division Upsert Error:', error);
+              data?.forEach(d => local.divisions[d.name] = d.id);
+          }
       }
       setProgress(20);
 
@@ -134,12 +139,20 @@ const DataUploadPage: React.FC = () => {
           return dId && tName && !local.teamMap[`${dId}_${tName}`];
       });
       if (uniqueTeams.length > 0) {
-          const teamInserts = uniqueTeams.map(key => {
-              const [dName, tName] = key.split('|');
-              return { company_id: cid, division_id: local.divisions[dName], name: tName };
-          });
-          const { data: newTeams } = await supabase.from('sales_teams').upsert(teamInserts, { onConflict: 'company_id, division_id, name' }).select();
-          newTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+          for (let i = 0; i < uniqueTeams.length; i += EN_CHUNK) {
+              const chunk = uniqueTeams.slice(i, i + EN_CHUNK);
+              const teamInserts = chunk.map(key => {
+                  const [dName, tName] = key.split('|');
+                  const divId = local.divisions[dName];
+                  return divId ? { company_id: cid, division_id: divId, name: tName } : null;
+              }).filter(Boolean);
+              
+              if (teamInserts.length > 0) {
+                  const { data, error } = await supabase.from('sales_teams').upsert(teamInserts as any, { onConflict: 'company_id, division_id, name' }).select();
+                  if (error) console.error('Team Upsert Error:', error);
+                  data?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+              }
+          }
       }
       setProgress(35);
 
@@ -151,23 +164,37 @@ const DataUploadPage: React.FC = () => {
           return tId && sName && !local.staffMap[`${tId}_${sName}`];
       });
       if (uniqueStaff.length > 0) {
-          const staffInserts = uniqueStaff.map(key => {
-              const [dName, tName, sName] = key.split('|');
-              const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
-              return { team_id: tId, name: sName };
-          });
-          const { data: newStaff } = await supabase.from('sales_staff').upsert(staffInserts, { onConflict: 'team_id, name' }).select();
-          newStaff?.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
+          for (let i = 0; i < uniqueStaff.length; i += EN_CHUNK) {
+              const chunk = uniqueStaff.slice(i, i + EN_CHUNK);
+              const staffInserts = chunk.map(key => {
+                  const [dName, tName, sName] = key.split('|');
+                  const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
+                  return tId ? { team_id: tId, name: sName } : null;
+              }).filter(Boolean);
+              
+              if (staffInserts.length > 0) {
+                  const { data, error } = await supabase.from('sales_staff').upsert(staffInserts as any, { onConflict: 'team_id, name' }).select();
+                  if (error) console.error('Staff Upsert Error:', error);
+                  data?.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
+              }
+          }
       }
       setProgress(50);
 
       // 4. Categories
       const uniqueCats = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c]);
       if (uniqueCats.length > 0) {
-          const { data: newCats } = await supabase.from('product_categories').upsert(uniqueCats.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
-          newCats?.forEach(c => local.catMap[c.name] = c.id);
+          for (let i = 0; i < uniqueCats.length; i += EN_CHUNK) {
+              const chunk = uniqueCats.slice(i, i + EN_CHUNK);
+              const { data, error } = await supabase.from('product_categories').upsert(chunk.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
+              if (error) console.error('Category Upsert Error:', error);
+              data?.forEach(c => local.catMap[c.name] = c.id);
+          }
       }
-      setProgress(60);
+      
+      // Final Sync before record creation: Re-fetch current state to ensure all IDs are in map
+      await fetchOrgInfo();
+      setProgress(65);
 
       // Phase 2: Record Preparation
       const finalRecs: any[] = [];
@@ -233,21 +260,21 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.6)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.7)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
-            <Upload size={48} /><div className={styles.dropzoneText}><p>파일 업로드</p><span>지능형 헤더 매핑 및 200건 Chunk 처리</span></div><input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+            <Upload size={48} /><div className={styles.dropzoneText}><p>파일 업로드</p><span>지능형 헤더 매핑 및 대용량 청크 처리</span></div><input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
         ) : (
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.6 (Massive)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.7 (Hardened)</h3>
           <ul className={styles.instructionList}>
             <li className={styles.instructionItem}><b>비동기 청크 파싱:</b> 26만 건 이상의 대용량 데이터도 UI 멈춤 없이 분석합니다.</li>
-            <li className={styles.instructionItem}><b>멱등성 보장 업서트:</b> 중복 데이터나 불완전한 캐시 환경에서도 안전하게 조직 구조를 동기화합니다.</li>
-            <li className={styles.instructionItem}><b>고속 스트리밍 저장:</b> 병목 구간을 최소화하여 단시간 내에 전체 실적을 클라우드에 반영합니다.</li>
+            <li className={styles.instructionItem}><b>강력한 조직 매칭:</b> 조직 정보 생성 시 세부 오류를 감지하고, 생성 실패 시 사유를 명확히 기록합니다.</li>
+            <li className={styles.instructionItem}><b>고속 스트리밍 저장:</b> 멱등성이 보장된 동기화 로직으로 데이터 중복을 방지하며 업로드합니다.</li>
           </ul>
         </div>
         <div className={styles.progressArea}>
