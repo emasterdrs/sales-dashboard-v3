@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, AlertTriangle, Zap } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,7 +18,6 @@ const DataUploadPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   
@@ -29,7 +28,6 @@ const DataUploadPage: React.FC = () => {
     categories: {} 
   });
 
-  const [resetConfirmation, setResetConfirmation] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
