@@ -138,33 +138,37 @@ const DataUploadPage: React.FC = () => {
       
       // 1. Synchronize Divisions
       const existingDivs = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
-      existingDivs.forEach(d => local.divisions[d.name] = d.id);
+      existingDivs.forEach(d => local.divisions[d.name.trim()] = d.id);
       
-      const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d]);
+      const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d.trim()]);
       if (missingDivNames.length > 0) {
           const { data: insertedDivs, error: divErr } = await supabase.from('sales_divisions').insert(missingDivNames.map(name => ({ company_id: cid, name }))).select();
           if (divErr) console.error('Division Insert Error:', divErr);
-          insertedDivs?.forEach(d => local.divisions[d.name] = d.id);
+          insertedDivs?.forEach(d => local.divisions[d.name.trim()] = d.id);
       }
       setProgress(25);
 
       // 2. Synchronize Teams
       const existingTeams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
-      existingTeams.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+      existingTeams.forEach(t => local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id);
       
       const missingTeamKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}`))).filter(key => {
           const [dName, tName] = key.split('|');
-          const dId = local.divisions[dName];
-          return dId && tName && !local.teamMap[`${dId}_${tName}`];
+          const dId = local.divisions[dName.trim()];
+          return dId && tName && !local.teamMap[`${dId}_${tName.trim()}`];
       });
       if (missingTeamKeys.length > 0) {
           const teamInserts = missingTeamKeys.map(key => {
               const [dName, tName] = key.split('|');
-              return { company_id: cid, division_id: local.divisions[dName], name: tName };
-          });
-          const { data: insertedTeams, error: teamErr } = await supabase.from('sales_teams').insert(teamInserts).select();
-          if (teamErr) console.error('Team Insert Error:', teamErr);
-          insertedTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+              const divId = local.divisions[dName.trim()];
+              return divId ? { company_id: cid, division_id: divId, name: tName.trim() } : null;
+          }).filter(Boolean);
+          
+          if (teamInserts.length > 0) {
+              const { data: insertedTeams, error: teamErr } = await supabase.from('sales_teams').insert(teamInserts as any).select();
+              if (teamErr) console.error('Team Insert Error:', teamErr);
+              insertedTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id);
+          }
       }
       setProgress(40);
 
@@ -183,31 +187,34 @@ const DataUploadPage: React.FC = () => {
       
       const missingStaffKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}|${r.name}`))).filter(key => {
           const [dName, tName, sName] = key.split('|');
-          const dId = local.divisions[dName];
-          const tId = dId ? local.teamMap[`${dId}_${tName}`] : null;
-          return tId && sName && !local.staffMap[`${tId}_${sName}`];
+          const dId = local.divisions[dName.trim()];
+          const tId = dId ? local.teamMap[`${dId}_${tName.trim()}`] : null;
+          return tId && sName && !local.staffMap[`${tId}_${sName.trim()}`];
       });
       if (missingStaffKeys.length > 0) {
           const staffInserts = missingStaffKeys.map(key => {
               const [dName, tName, sName] = key.split('|');
-              const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
-              return { team_id: tId, name: sName };
-          });
-          const { data: insertedStaff, error: sErr } = await supabase.from('sales_staff').insert(staffInserts).select();
-          if (sErr) console.error('Staff Insert Error:', sErr);
-          insertedStaff?.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
+              const tId = local.teamMap[`${local.divisions[dName.trim()]}_${tName.trim()}`];
+              return tId ? { team_id: tId, name: sName.trim() } : null;
+          }).filter(Boolean);
+          
+          if (staffInserts.length > 0) {
+              const { data: insertedStaff, error: sErr } = await supabase.from('sales_staff').insert(staffInserts as any).select();
+              if (sErr) console.error('Staff Insert Error:', sErr);
+              insertedStaff?.forEach(s => local.staffMap[`${s.team_id}_${s.name.trim()}`] = s.id);
+          }
       }
       setProgress(55);
 
       // 4. Synchronize Categories
       const existingCats = await fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid));
-      existingCats.forEach(c => local.catMap[c.name] = c.id);
+      existingCats.forEach(c => local.catMap[c.name.trim()] = c.id);
 
-      const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c]);
+      const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c.trim()]);
       if (missingCatNames.length > 0) {
           const { data: insertedCats, error: cErr } = await supabase.from('product_categories').insert(missingCatNames.map(name => ({ company_id: cid, name }))).select();
           if (cErr) console.error('Category Insert Error:', cErr);
-          insertedCats?.forEach(c => local.catMap[c.name] = c.id);
+          insertedCats?.forEach(c => local.catMap[c.name.trim()] = c.id);
       }
       
       setProgress(65);
@@ -293,7 +300,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.0)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.2)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -303,11 +310,11 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.0 (Enterprise)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.2 (Resilient)</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>엔터프라이즈 매칭:</b> 조직 정보(지점-팀-사원)의 중복을 완벽히 필터링하고 정확하게 매칭합니다.</li>
-            <li className={styles.instructionItem}><b>수평적 데이터 합산:</b> 데이터 양에 관계없이 동일한 실적은 자동으로 합산(SUM)하여 관리합니다.</li>
-            <li className={styles.instructionItem}><b>대규모 안정성 보장:</b> 수십만 건의 행도 끊김 없이 클라우드와 고속으로 동기화합니다.</li>
+            <li className={styles.instructionItem}><b>슈퍼 리질리언트 매칭:</b> 미세한 공백이나 오타 등 데이터 불정합성을 완벽히 필터링하여 정확하게 조직을 매칭합니다.</li>
+            <li className={styles.instructionItem}><b>동기식 상태 관리:</b> 비동기 데이터베이스 통신 지연을 극복하여 실시간으로 인적 자원 정보를 동기화합니다.</li>
+            <li className={styles.instructionItem}><b>계층적 데이터 보호:</b> 상위 조직 정보의 무결성을 먼저 검증하여 하위 데이터 업로드 실패를 방지합니다.</li>
           </ul>
         </div>
         <div className={styles.progressArea}>
