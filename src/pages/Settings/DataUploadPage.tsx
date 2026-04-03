@@ -32,17 +32,33 @@ const DataUploadPage: React.FC = () => {
     const cid = profile?.company_id;
     if (!cid) return;
     try {
-      const { data: divisions } = await supabase.from('sales_divisions').select('id, name').eq('company_id', cid);
-      const { data: teams } = await supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid);
-      const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map(t => t.id) || []);
-      const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', cid);
+      // Helper to fetch all records (bypass 1000 limit)
+      const fetchAll = async (table: string, query: any) => {
+          let all: any[] = [];
+          let from = 0;
+          const step = 1000;
+          while (true) {
+              const { data, error } = await query.range(from, from + step - 1);
+              if (error) throw error;
+              if (!data || data.length === 0) break;
+              all = [...all, ...data];
+              if (data.length < step) break;
+              from += step;
+          }
+          return all;
+      };
+
+      const divisions = await fetchAll('sales_divisions', supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
+      const teams = await fetchAll('sales_teams', supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
+      const staff = await fetchAll('sales_staff', supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map((t:any) => t.id) || []));
+      const cats = await fetchAll('product_categories', supabase.from('product_categories').select('id, name').eq('company_id', cid));
       
       const dMap: any = {}; divisions?.forEach((d: any) => dMap[d.name.trim()] = d.id);
       const tMap: any = {}; teams?.forEach((t: any) => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
       const sMap: any = {}; staff?.forEach((s: any) => sMap[`${s.team_id}_${s.name.trim()}`] = s.id);
       const cMap: any = {}; cats?.forEach((c: any) => cMap[c.name.trim()] = c.id);
       setOrgMap({ divisions: dMap, teamMap: tMap, staffMap: sMap, catMap: cMap });
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('fetchOrgInfo Error:', e); }
   };
 
   const getColIndex = (headers: string[], aliases: string[]) => {
@@ -196,8 +212,8 @@ const DataUploadPage: React.FC = () => {
       await fetchOrgInfo();
       setProgress(65);
 
-      // Phase 2: Record Preparation
-      const finalRecs: any[] = [];
+      // Phase 2: Record Preparation & Aggregation (v2.8 Client-side Summer)
+      const aggMap = new Map<string, any>();
       rows.forEach(r => {
           const dId = local.divisions[r.div];
           const tId = dId ? local.teamMap[`${dId}_${r.team}`] : null;
@@ -208,8 +224,26 @@ const DataUploadPage: React.FC = () => {
               else errList.push(`${r._row}행: 사원 매칭 실패(${r.div}/${r.team}/${r.name})`);
               return;
           }
-          finalRecs.push({ company_id: cid, staff_id: sId, team_id: tId, category_id: cId || null, customer_name: r.customer, item_name: r.item, amount: r.amount, sales_date: r.date });
+          
+          // Unique Key for Aggregation: staff|customer|item|date
+          const key = `${sId}|${r.customer}|${r.item}|${r.date}`;
+          if (aggMap.has(key)) {
+              const existing = aggMap.get(key);
+              existing.amount += r.amount;
+          } else {
+              aggMap.set(key, { 
+                  company_id: cid, 
+                  staff_id: sId, 
+                  team_id: tId, 
+                  category_id: cId || null, 
+                  customer_name: r.customer, 
+                  item_name: r.item, 
+                  amount: r.amount, 
+                  sales_date: r.date 
+              });
+          }
       });
+      const finalRecs = Array.from(aggMap.values());
 
       setOrgMap(local);
       setProgress(70);
@@ -259,7 +293,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.7)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.8)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -269,11 +303,11 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.7 (Hardened)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.8 (Aggregation)</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>비동기 청크 파싱:</b> 26만 건 이상의 대용량 데이터도 UI 멈춤 없이 분석합니다.</li>
-            <li className={styles.instructionItem}><b>강력한 조직 매칭:</b> 조직 정보 생성 시 세부 오류를 감지하고, 생성 실패 시 사유를 명확히 기록합니다.</li>
-            <li className={styles.instructionItem}><b>고속 스트리밍 저장:</b> 멱등성이 보장된 동기화 로직으로 데이터 중복을 방지하며 업로드합니다.</li>
+            <li className={styles.instructionItem}><b>지능형 중복 합산:</b> 동일한 사원, 거래처, 품목의 중복 데이터는 자동으로 합산(SUM)하여 기록합니다.</li>
+            <li className={styles.instructionItem}><b>무제한 조직 동기화:</b> 수만 명의 사원 정보도 제한 없이 매칭하여 누락 없는 업로드를 보장합니다.</li>
+            <li className={styles.instructionItem}><b>고속 스트리밍 저장:</b> 병목 구간을 최소화한 스트리밍 처리로 대용량 데이터를 클라우드에 신속히 반영합니다.</li>
           </ul>
         </div>
         <div className={styles.progressArea}>
