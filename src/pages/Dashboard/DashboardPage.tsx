@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  XAxis, YAxis, Tooltip, ResponsiveContainer, 
   AreaChart, Area
 } from 'recharts';
 import { 
   Building2, 
   Layers,
-  TrendingUp,
-  LayoutDashboard
+  TrendingUp
 } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -367,27 +366,31 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className={`${styles.page} fade-in`}>
-      <div className={styles.topControl}>
+      <header className={styles.topControl}>
+        <div className={styles.titleArea}>
+          <h1>Dashboard</h1>
+          <p>{year}년 {month}월 분석 리포트</p>
+        </div>
+        
         <div className={styles.modeSwitcher}>
           <button 
             className={`${styles.modeBtn} ${!isTypeMode ? styles.activeMode : ''}`}
             onClick={() => navigate('/team/goal')}
           >
-            <Building2 size={16} /> <span>사업부별(조직) 실적</span>
+            <Building2 size={16} /> <span>조직별 실적</span>
           </button>
           <button 
             className={`${styles.modeBtn} ${isTypeMode ? styles.activeMode : ''}`}
             onClick={() => navigate('/type/goal')}
           >
-            <Layers size={16} /> <span>제품유형별 실적</span>
+            <Layers size={16} /> <span>제품유형별</span>
           </button>
         </div>
-        <div className={styles.unitBadge}><LayoutDashboard size={14} /> <span>종합 분석 모드</span></div>
-      </div>
+      </header>
 
       <DashboardHeader 
-        title={`${year}년 ${month}월 ${isTypeMode ? '제품유형별' : '사업부별'} 매출실적`}
-        subtitle={`${isTypeMode ? '제품군 유형별' : '사업부 조직별'} 분석 마감 현황`}
+        title={`${isTypeMode ? '제품유형별' : '사업부별'} 분석 현황`}
+        subtitle="실시간 매출 달성률 및 실적 분석"
         totalWorkingDays={workingDays.total}
         currentWorkingDays={workingDays.current}
         isExpectedClosingOn={isExpectedClosingOn}
@@ -396,58 +399,93 @@ const DashboardPage: React.FC = () => {
         onUnitChange={setUnit}
       />
 
-      <div className={styles.chartCard} style={{ background: isTypeMode ? 'linear-gradient(135deg, #fff 0%, #fffbf0 100%)' : 'white' }}>
-        <div className={styles.chartHeader}>
-          <div className={styles.titleGroup}>
-            <TrendingUp size={20} className={styles.titleIcon} />
-            <h3 className={styles.chartTitle}>{isTypeMode ? '유형별 분석 추이' : '사업부별 분석 추이'} ({year}년)</h3>
+      <div className={styles.dashboardGrid}>
+        <div className={`${styles.chartCard} ${styles.fullWidth}`}>
+          <div className={styles.chartHeader}>
+            <div className={styles.titleGroup}>
+              <div className={styles.titleIcon}><TrendingUp size={24} /></div>
+              <div>
+                <h3 className={styles.chartTitle}>{isTypeMode ? '유형별 분석 추이' : '사업부별 분석 추이'}</h3>
+                <p className={styles.chartUnit}>{year}년 월별 누적 실적</p>
+              </div>
+            </div>
+            <div className={styles.unitBadge}>단위: {getUnitName()}</div>
           </div>
-          <span className={styles.chartUnit}>단위: {getUnitName()}</span>
+          
+          <div className={styles.chartWrapper}>
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                  dy={10} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: 'var(--radius-lg)', 
+                    border: '1px solid var(--border-subtle)', 
+                    boxShadow: 'var(--shadow-xl)',
+                    fontWeight: 700
+                  }} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="performance" 
+                  stroke="var(--primary)" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorIndigo)" 
+                  name="실적" 
+                  animationDuration={1500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className={styles.chartWrapper}>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={trendData}>
-              <defs>
-                <linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isTypeMode ? "#f6ad55" : "#ed8936"} stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#ed8936" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-              <Area type="monotone" dataKey="performance" stroke={isTypeMode ? "#f6ad55" : "#ed8936"} strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" name="실적" />
-            </AreaChart>
-          </ResponsiveContainer>
+
+        <div className={styles.fullWidth}>
+          <SummaryGrid 
+            goal={summaryData.goal}
+            performance={isExpectedClosingOn ? formatValue((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) : summaryData.performance}
+            achievementRate={isExpectedClosingOn 
+              ? (((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) / (summaryData.originalGoalVal || 1) * 100).toFixed(1)
+              : summaryData.achievementRate
+            }
+            progressGap={isExpectedClosingOn
+              ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '-') + 
+                 formatValue(Math.abs(((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
+              : summaryData.progressGap
+            }
+            unit={getUnitName()}
+            isExpected={isExpectedClosingOn}
+            isWarning={isExpectedClosingOn && ((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) < summaryData.originalGoalVal}
+          />
+        </div>
+
+        <div className={styles.fullWidth}>
+          <DrillDownTable 
+            breadcrumbs={breadcrumbs}
+            onBreadcrumbClick={handleBreadcrumbClick}
+            data={displayData}
+            onRowClick={handleRowClick}
+            columns={columns}
+            isExpectedClosingOn={isExpectedClosingOn}
+          />
         </div>
       </div>
-
-      <SummaryGrid 
-        goal={summaryData.goal}
-        performance={isExpectedClosingOn ? formatValue((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) : summaryData.performance}
-        achievementRate={isExpectedClosingOn 
-          ? (((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) / (summaryData.originalGoalVal || 1) * 100).toFixed(1)
-          : summaryData.achievementRate
-        }
-        progressGap={isExpectedClosingOn
-          ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '-') + 
-             formatValue(Math.abs(((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
-          : summaryData.progressGap
-        }
-        unit={getUnitName()}
-        isExpected={isExpectedClosingOn}
-        isWarning={isExpectedClosingOn && ((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) < summaryData.originalGoalVal}
-      />
-
-      <DrillDownTable 
-        breadcrumbs={breadcrumbs}
-        onBreadcrumbClick={handleBreadcrumbClick}
-        data={displayData}
-        onRowClick={handleRowClick}
-        columns={columns}
-        isExpectedClosingOn={isExpectedClosingOn}
-      />
     </div>
   );
 };

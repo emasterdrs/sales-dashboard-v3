@@ -36,7 +36,7 @@ CREATE TABLE public.sales_divisions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    display_order INT DEFAULT 0,
+    display_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -46,7 +46,7 @@ CREATE TABLE public.sales_teams (
     company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
     division_id UUID REFERENCES public.sales_divisions(id) ON DELETE SET NULL, -- Linked to Division
     name TEXT NOT NULL,
-    display_order INT DEFAULT 0,
+    display_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -55,7 +55,7 @@ CREATE TABLE public.sales_staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     team_id UUID REFERENCES public.sales_teams(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    display_order INT DEFAULT 0,
+    display_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

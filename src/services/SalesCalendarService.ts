@@ -51,58 +51,56 @@ export class SalesCalendarService {
   }
 
   /**
-   * Enhanced Robust Date Parser.
-   * Priority: Regex Match (Standard Dash) -> Excel Serial -> Date Object -> date-fns parsing.
+   * Universal Date Normalizer (v2.3)
+   * Converts any raw input (Excel serial, various strings, ISO Date) to YYYY-MM-DD.
    */
   static parseUserDate(dateValue: any): string | null {
-    if (dateValue === null || dateValue === undefined) return null;
+    if (dateValue === null || dateValue === undefined || String(dateValue).trim() === '') return null;
 
-    // 1. Regex Fast-Path (YYYY-MM-DD or YYYY.MM.DD)
-    const rawStr = String(dateValue).trim();
-    const isoMatch = rawStr.match(/^(\d{4})[-.](\d{1,2})[-.](\d{1,2})/);
-    if (isoMatch) {
-      const y = isoMatch[1];
-      const m = isoMatch[2].padStart(2, '0');
-      const d = isoMatch[3].padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    // 2. Excel Date/Object Path
-    if (dateValue instanceof Date) {
+    // 1. ArrayBuffer or Buffer (Unlikely here, but for safety)
+    if (typeof dateValue === 'object' && dateValue instanceof Date) {
       if (isValid(dateValue)) return format(dateValue, 'yyyy-MM-dd');
       return null;
     }
 
-    // 3. Excel Serial Number Path
-    if (typeof dateValue === 'number') {
+    // 2. Excel Serial Number (e.g. 42736 -> 2017-01-01)
+    if (typeof dateValue === 'number' || (typeof dateValue === 'string' && /^\d{5}$/.test(dateValue))) {
       try {
-        const dateObj = XLSX.SSF.parse_date_code(dateValue);
+        const serial = Number(dateValue);
+        const dateObj = XLSX.SSF.parse_date_code(serial);
         return `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
       } catch (e) {
-        // Fall through
+        // Continue to other parsers
       }
     }
 
-    // 4. Compact formats (e.g. 20170101)
-    const compactMatch = rawStr.replace(/\s/g, '').match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (compactMatch) {
-        return `${compactMatch[1]}-${compactMatch[2]}-${compactMatch[3]}`;
+    // 3. String Clean-up & Common Formats
+    const rawStr = String(dateValue).trim().replace(/\s/g, '');
+    
+    // YYYYMMDD (Compact)
+    if (/^\d{8}$/.test(rawStr)) {
+      return `${rawStr.slice(0,4)}-${rawStr.slice(4,6)}-${rawStr.slice(6,8)}`;
     }
 
-    // 5. date-fns parsing fallback (e.g. YY/MM/DD)
-    const normalizedStr = rawStr.replace(/[./]/g, '-');
-    const formats = [
-      'yyyy-MM-dd',
-      'yyyy-M-d',
-      'yy-MM-dd',
-      'yy-M-d',
-      'M/d/yy',
-      'MM/dd/yyyy'
-    ];
+    // YYYY-MM-DD or YYYY.MM.DD or YYYY/MM/DD
+    const delimiters = rawStr.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+    if (delimiters) {
+      return `${delimiters[1]}-${delimiters[2].padStart(2, '0')}-${delimiters[3].padStart(2, '0')}`;
+    }
 
+    // YY/MM/DD or YY-MM-DD
+    const shortMatch = rawStr.match(/^(\d{2})[./-](\d{1,2})[./-](\d{1,2})/);
+    if (shortMatch) {
+      const yearPrefix = parseInt(shortMatch[1]) > 50 ? '19' : '20';
+      return `${yearPrefix}${shortMatch[1]}-${shortMatch[2].padStart(2, '0')}-${shortMatch[3].padStart(2, '0')}`;
+    }
+
+    // Fallback using date-fns with common formats
+    const normalized = rawStr.replace(/[./]/g, '-');
+    const formats = ['yyyy-MM-dd', 'yyyy-M-d', 'MM-dd-yyyy', 'M-d-yyyy'];
     for (const f of formats) {
       try {
-        const parsed = parse(normalizedStr, f, new Date());
+        const parsed = parse(normalized, f, new Date());
         if (isValid(parsed) && parsed.getFullYear() > 1950 && parsed.getFullYear() < 2100) {
           return format(parsed, 'yyyy-MM-dd');
         }

@@ -13,6 +13,19 @@ interface UploadResult {
   errors: string[];
 }
 
+interface ExcelRow {
+  _rowIndex: number;
+  date: string | null;
+  rawDate: string;
+  divisionName: string;
+  teamName: string;
+  name: string;
+  customer: string;
+  item: string;
+  amountStr: string;
+  categoryName: string;
+}
+
 const DataUploadPage: React.FC = () => {
   const { profile, fetchProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +48,7 @@ const DataUploadPage: React.FC = () => {
       const { data: teams } = await supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid);
       const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map(t => t.id) || []);
       const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', cid);
+      
       const dMap: any = {}; divisions?.forEach(d => dMap[d.name.trim()] = d.id);
       const tMap: any = {}; teams?.forEach(t => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
       const sMap: any = {}; staff?.forEach(s => sMap[`${s.team_id}_${s.name.trim()}`] = s.id);
@@ -43,7 +57,7 @@ const DataUploadPage: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
-  const parseExcelOrCsv = async (file: File) => {
+  const parseExcelOrCsv = async (file: File): Promise<ExcelRow[]> => {
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data, { cellFormula: false, cellHTML: false, cellText: false });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -63,7 +77,7 @@ const DataUploadPage: React.FC = () => {
         amountStr: String(row[6] || '').trim(),
         categoryName: String(row[7] || '').trim()
       };
-    }).filter((r): r is any => r !== null);
+    }).filter((r): r is ExcelRow => r !== null && (!!r.divisionName || !!r.name));
   };
 
   const startUpload = async () => {
@@ -75,7 +89,10 @@ const DataUploadPage: React.FC = () => {
     try {
       const rows = await parseExcelOrCsv(file);
       if (rows.length === 0) { setIsUploading(false); return; }
+      
       const local = { ...orgMap };
+
+      // 1. Divisions Sync
       const uniqDivs = [...new Set(rows.map(r => r.divisionName).filter(Boolean))];
       for (const dName of uniqDivs) {
           if (!local.divisions[dName]) {
@@ -87,6 +104,8 @@ const DataUploadPage: React.FC = () => {
               }
           }
       }
+
+      // 2. Teams Sync
       const uniqTeams = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}`).filter(v => v.split('||')[1]))];
       for (const tKey of uniqTeams) {
           const [dn, tn] = tKey.split('||'); const dId = local.divisions[dn];
@@ -99,10 +118,13 @@ const DataUploadPage: React.FC = () => {
               }
           }
       }
+
+      // 3. Staff Sync (Complex Key: TeamID + Name)
       const uniqStaff = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}||${r.name}`).filter(v => v.split('||')[2]))];
       for (const sKey of uniqStaff) {
           const [dn, tn, sn] = sKey.split('||');
-          const dId = local.divisions[dn]; const tId = dId ? local.teamMap[`${dId}_${tn}`] : null;
+          const dId = local.divisions[dn]; 
+          const tId = dId ? local.teamMap[`${dId}_${tn}`] : null;
           if (tId && !local.staffMap[`${tId}_${sn}`]) {
               const { data: c } = await supabase.from('sales_staff').insert({ team_id: tId, name: sn }).select().maybeSingle();
               if (c) local.staffMap[`${tId}_${sn}`] = c.id;
@@ -112,7 +134,19 @@ const DataUploadPage: React.FC = () => {
               }
           }
       }
+
+      // 4. Categories Sync (Auto-Unclassified for empty)
       const uniqCats = [...new Set(rows.map(r => r.categoryName).filter(Boolean))];
+      // Ensure '999. 미분류' exists
+      if (!local.catMap['999. 미분류']) {
+          const { data: fallback } = await supabase.from('product_categories').select('id').eq('company_id', cid).eq('name', '999. 미분류').maybeSingle();
+          if (fallback) local.catMap['999. 미분류'] = fallback.id;
+          else {
+              const { data: created } = await supabase.from('product_categories').insert({ company_id: cid, name: '999. 미분류', display_order: 999 }).select().maybeSingle();
+              if (created) local.catMap['999. 미분류'] = created.id;
+          }
+      }
+
       for (const cn of uniqCats) {
           if (!local.catMap[cn]) {
               const { data: c } = await supabase.from('product_categories').insert({ company_id: cid, name: cn }).select().maybeSingle();
@@ -123,20 +157,35 @@ const DataUploadPage: React.FC = () => {
               }
           }
       }
+
+      // 5. Final Mapping & Upsert
       const finalRecs: any[] = [];
-      const fCat = local.catMap['미분류'];
+      const fCatId = local.catMap['999. 미분류'];
       rows.forEach(r => {
           const dId = local.divisions[r.divisionName];
           const tId = dId ? local.teamMap[`${dId}_${r.teamName}`] : null;
           const sId = tId ? local.staffMap[`${tId}_${r.name}`] : null;
-          const cId = local.catMap[r.categoryName] || fCat;
+          // Use '999. 미분류' if categoryName is empty or not in map
+          const catNameClean = r.categoryName || '999. 미분류';
+          const cId = local.catMap[catNameClean] || fCatId;
+
           if (!r.date || !dId || !tId || !sId) {
               if(!r.date) errList.push(`${r._rowIndex}행: 날짜 파생 오류(${r.rawDate})`);
               else errList.push(`${r._rowIndex}행: 조직 매칭 실패(${r.divisionName}/${r.teamName}/${r.name})`);
               return;
           }
-          finalRecs.push({ company_id: cid, staff_id: sId, team_id: tId, category_id: cId || null, customer_name: r.customer || '미지정', item_name: r.item || '미지정', amount: Math.abs(parseInt(r.amountStr.replace(/[^0-9-]/g, ''))) || 0, sales_date: r.date });
+          finalRecs.push({ 
+            company_id: cid, 
+            staff_id: sId, 
+            team_id: tId, 
+            category_id: cId, 
+            customer_name: r.customer || '미지정', 
+            item_name: r.item || '미지정', 
+            amount: Math.abs(parseInt(r.amountStr.replace(/[^0-9-]/g, ''))) || 0, 
+            sales_date: r.date 
+          });
       });
+
       setOrgMap(local);
       let sc = 0; const CHUNK = 500;
       for (let i = 0; i < finalRecs.length; i += CHUNK) {
@@ -172,7 +221,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} className={styles.zapIcon} /></div><h1 className={styles.title}>대용량 데이터 업로드 (v2.3)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} className={styles.zapIcon} /></div><h1 className={styles.title}>대용량 지능형 데이터 업로드 (v2.3)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -181,6 +230,13 @@ const DataUploadPage: React.FC = () => {
         ) : (
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
+        <div className={styles.instructions}>
+          <h3 className={styles.instructionTitle}>⚡ 스마트 데이터 처리 (v2.3)</h3>
+          <ul className={styles.instructionList}>
+            <li className={styles.instructionItem}><b>복합 키 매칭:</b> 사업부+팀+성명이 일치하는 사원을 정확히 찾아 실적을 매핑합니다.</li>
+            <li className={styles.instructionItem}><b>미분류 자동화:</b> 제품유형이 비어있는 데이터는 '999. 미분류' 카테고리로 자동 배정됩니다.</li>
+          </ul>
+        </div>
         <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : '마감 데이터 업로드 시작'}
         </button>
