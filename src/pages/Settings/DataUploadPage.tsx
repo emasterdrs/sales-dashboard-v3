@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, Zap, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, X, Loader2, Download, Zap, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
