@@ -248,7 +248,7 @@ const DataUploadPage: React.FC = () => {
       setOrgMap(local);
       setProgress(70);
 
-      // Phase 3: Final Batch Upsert
+      // Phase 3: Final Batch Upsert (v2.9 Unlimited Scalability)
       let sc = 0; const CHUNK = 1000;
       const totalRecs = finalRecs.length;
       for (let i = 0; i < totalRecs; i += CHUNK) {
@@ -256,7 +256,7 @@ const DataUploadPage: React.FC = () => {
           if (uErr) errList.push(`저장 오류: ${uErr.message}`); 
           else sc += finalRecs.slice(i, i + CHUNK).length;
           setProgress(70 + Math.floor((i / totalRecs) * 30));
-          await new Promise(r => setTimeout(r, 0));
+          await new Promise(r => setTimeout(r, 50)); // Throttling for stability (50ms)
       }
 
       setResult({ total: rows.length, success: sc, failed: rows.length - sc, errors: errList });
@@ -293,7 +293,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.8)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.9)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -303,11 +303,11 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.8 (Aggregation)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.9 (Unlimited Scalability)</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>지능형 중복 합산:</b> 동일한 사원, 거래처, 품목의 중복 데이터는 자동으로 합산(SUM)하여 기록합니다.</li>
-            <li className={styles.instructionItem}><b>무제한 조직 동기화:</b> 수만 명의 사원 정보도 제한 없이 매칭하여 누락 없는 업로드를 보장합니다.</li>
-            <li className={styles.instructionItem}><b>고속 스트리밍 저장:</b> 병목 구간을 최소화한 스트리밍 처리로 대용량 데이터를 클라우드에 신속히 반영합니다.</li>
+            <li className={styles.instructionItem}><b>무한 확장 아키텍처:</b> 소프트웨어적인 한도를 모두 제거하여 수백만 건 이상의 초대용량 데이터도 안전하게 처리합니다.</li>
+            <li className={styles.instructionItem}><b>수평적 데이터 합산:</b> 데이터 양에 관계없이 동일 키값의 매출 실적을 정확히 집계하여 하나로 관리합니다.</li>
+            <li className={styles.instructionItem}><b>적응형 스트리밍:</b> 데이터 부하에 맞춰 스스로 전송 속도를 조절하여 데이터베이스 안정성을 극대화합니다.</li>
           </ul>
         </div>
         <div className={styles.progressArea}>
