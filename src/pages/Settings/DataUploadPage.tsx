@@ -19,6 +19,7 @@ const DataUploadPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false); // 드래그 상태 추가
   const [result, setResult] = useState<UploadResult | null>(null);
   
   // Advanced mapping for 3-level validation & provisioning
@@ -236,6 +237,33 @@ const DataUploadPage: React.FC = () => {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls')) {
+        setFile(droppedFile);
+      } else {
+        alert('엑셀(.xlsx) 파일만 업로드할 수 있습니다.');
+      }
+    }
+  };
+
   const resetAllData = async () => {
     if (!profile?.company_id || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인 필요');
     if (!confirm('경고: 기업의 모든 실적과 목표가 영구 삭제됩니다. 계속하시겠습니까?')) return;
@@ -261,10 +289,16 @@ const DataUploadPage: React.FC = () => {
 
       <div className={styles.uploadCard}>
         {!file ? (
-          <div className={styles.dropzone} onClick={() => fileInputRef.current?.click()}>
+          <div 
+            className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} 
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <Upload size={48} className={styles.dropzoneIcon} />
             <div className={styles.dropzoneText}>
-              <p>파일을 선택하거나 드래그하세요.</p>
+              <p>{isDragging ? '여기에 놓으세요!' : '파일을 선택하거나 드래그하세요.'}</p>
               <span>Excel(.xlsx) 대용량 지원</span>
             </div>
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
