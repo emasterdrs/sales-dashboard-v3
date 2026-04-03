@@ -112,6 +112,7 @@ const DashboardPage: React.FC = () => {
         if (!data || data.length === 0) break;
         all = [...all, ...data];
         if (data.length < step) break;
+        from += step;
     }
     return all;
   };
