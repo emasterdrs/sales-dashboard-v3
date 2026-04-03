@@ -184,9 +184,11 @@ const DashboardPage: React.FC = () => {
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (divisions || []).map(d => d.id);
-          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
           const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
+          const allTeamIds = ids.length > 0 ? (teamList || []).filter(t => ids.includes(t.division_id)).map(t => t.id) : [];
+          
+          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
+          const { data: perf } = allTeamIds.length > 0 ? await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('team_id', allTeamIds) : { data: [] };
 
           data = (divisions || []).map(d => {
             const target = parseNum((targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0);
@@ -215,7 +217,7 @@ const DashboardPage: React.FC = () => {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
           const ids = (teams || []).map(t => t.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('team_id', ids) : { data: [] };
 
           data = (teams || []).map(t => {
             const teamTarget = parseNum((targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0);
@@ -236,7 +238,7 @@ const DashboardPage: React.FC = () => {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
           const ids = (staff || []).map(s => s.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('staff_id', ids) : { data: [] };
 
           data = (staff || []).map(s => {
             const staffTarget = parseNum((targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0);
@@ -271,7 +273,7 @@ const DashboardPage: React.FC = () => {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (cats || []).map(c => c.id);
           const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
-          const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+          const { data: perf } = ids.length > 0 ? await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate).in('category_id', ids) : { data: [] };
 
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
             const target = parseNum((targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0);
