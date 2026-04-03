@@ -1,103 +1,96 @@
 .container {
-  padding: 40px;
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
 .titleArea {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: center;
 }
 
 .iconWrapper {
-  width: 56px;
-  height: 56px;
-  background: #1a1a1a;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.backBtn {
+  width: 64px;
+  height: 64px;
   background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  width: 40px;
-  height: 40px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748B;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-right: 8px;
-}
-
-.backBtn:hover {
-  background: #F8FAFC;
-  color: #1a1a1a;
-  border-color: #1a1a1a;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -1.5px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #64748B;
-  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  gap: 24px;
 }
 
 .searchBar {
   display: flex;
   align-items: center;
   background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 12px 20px;
   gap: 12px;
   width: 100%;
   max-width: 440px;
+  box-shadow: var(--shadow-sm);
 }
 
 .searchBar input {
   flex: 1;
   border: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.searchBar input:focus {
   outline: none;
 }
 
 .statsSummary {
   font-size: 14px;
-  color: #64748B;
+  color: var(--text-dim);
+  font-weight: 600;
 }
 
 .statsSummary strong {
-  color: #1a1a1a;
+  color: var(--secondary);
   font-weight: 800;
 }
 
 .card {
   background: white;
-  border-radius: 24px;
-  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  box-shadow: var(--shadow-md);
 }
 
 .table {
@@ -107,88 +100,62 @@
 
 .table th {
   text-align: left;
-  padding: 20px;
-  background: #F8FAFC;
-  font-size: 13px;
-  font-weight: 700;
-  color: #94A3B8;
-  border-bottom: 1px solid #E2E8F0;
+  padding: 20px 32px;
+  background: var(--bg-app);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .table td {
-  padding: 20px;
-  border-bottom: 1px solid #F1F5F9;
-  font-size: 14px;
-  color: #475569;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 15px;
+  color: var(--secondary);
 }
 
 .userInfo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
-  background: #1a1a1a;
-  color: white;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-app);
+  color: var(--primary);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .userName {
-  font-weight: 700;
-  color: #1e293b;
-  font-size: 15px;
+  font-weight: 800;
+  color: var(--secondary);
 }
 
 .userEmail {
-  font-size: 12px;
-  color: #94A3B8;
-}
-
-.companyInfo {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #64748B;
   font-size: 13px;
-  font-weight: 600;
-}
-
-.noCompany {
-  color: #CBD5E0;
-  font-style: italic;
+  color: var(--text-dim);
 }
 
 .roleBadge {
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.super {
-  background: #FEF2F2;
-  color: #EF4444;
-}
-
-.company {
-  background: #EFF6FF;
-  color: #3B82F6;
-}
-
-.user {
-  background: #F8FAFC;
-  color: #64748B;
-}
+.super { background: #fee2e2; color: #991b1b; }
+.company { background: #e0e7ff; color: #3730a3; }
+.user { background: #f1f5f9; color: #475569; }
 
 .statusDot {
   display: inline-block;
@@ -198,13 +165,8 @@
   margin-right: 8px;
 }
 
-.active {
-  background: #10B981;
-}
-
-.inactive {
-  background: #EF4444;
-}
+.active { background: #10b981; }
+.inactive { background: #ef4444; }
 
 .actions {
   display: flex;
@@ -213,72 +175,35 @@
 }
 
 .roleSelect {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
-  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
   font-weight: 700;
-  color: #475569;
-  outline: none;
-  cursor: pointer;
+  color: var(--text-muted);
   background: white;
+  cursor: pointer;
 }
 
 .actionBtn {
   border: none;
-  padding: 6px 16px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition);
 }
 
-.activeBtn {
-  background: #10B981;
-  color: white;
-}
-
-.suspendBtn {
-  background: #FEF2F2;
-  color: #EF4444;
-}
-
-.actionBtn:hover {
-  transform: translateY(-1px);
-}
-
-.loadingArea {
-  padding: 100px 0;
-  text-align: center;
-  color: #94A3B8;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
+.activeBtn { background: #dcfce7; color: #166534; }
+.suspendBtn { background: #fee2e2; color: #991b1b; }
 
 @media (max-width: 1024px) {
-  .container {
-    padding: 24px;
-    margin-top: 64px; /* Space for mobile header */
-  }
-
   .controls {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
   }
-
   .searchBar {
     max-width: 100%;
-  }
-
-  .card {
-     overflow-x: auto;
-  }
-
-  .table {
-    min-width: 900px;
   }
 }

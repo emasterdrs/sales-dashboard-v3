@@ -1,38 +1,44 @@
 .container {
-  padding: 40px;
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
 .titleArea {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: center;
 }
 
 .iconWrapper {
-  width: 56px;
-  height: 56px;
-  background: #E2E8F0;
-  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1a1a1a;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -1.5px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #64748B;
-  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .mainLayout {
@@ -43,12 +49,13 @@
 
 .card {
   background: white;
-  border-radius: 24px;
-  border: 1px solid #E2E8F0;
-  padding: 24px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-subtle);
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  box-shadow: var(--shadow-md);
 }
 
 .cardTitleArea {
@@ -60,214 +67,140 @@
 .cardTitle {
   font-size: 18px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -0.5px;
 }
 
 .addBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #F1F5F9;
-  color: #475569;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background: var(--bg-app);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
 }
 
 .addBtn:hover {
-  background: #E2E8F0;
-  color: #1e293b;
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
 }
 
 .itemList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: #F8FAFC;
-  border-radius: 12px;
+  padding: 16px 20px;
+  background: var(--bg-app);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
   border: 1px solid transparent;
 }
 
 .item:hover {
   background: white;
-  border-color: #CBD5E1;
+  border-color: var(--primary-light);
   transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
 }
 
 .itemActive {
-  background: #1a1a1a;
+  background: var(--primary);
   color: white;
-  border-color: #1a1a1a;
+  border-color: var(--primary);
+  box-shadow: 0 4px 10px var(--primary-glow);
 }
 
 .itemName {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .itemActions {
   display: flex;
   gap: 8px;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: var(--transition);
 }
 
-.item:hover .itemActions {
-  opacity: 1;
-}
-
+.item:hover .itemActions,
 .itemActive .itemActions {
   opacity: 1;
 }
 
-.actionBtn {
-  background: transparent;
-  border: none;
-  padding: 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #94A3B8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.itemActive .actionBtn {
-  color: rgba(255,255,255,0.6);
-}
-
-.actionBtn:hover {
-  background: #E2E8F0;
-  color: #1e293b;
-}
-
-.itemActive .actionBtn:hover {
-  background: rgba(255,255,255,0.1);
-  color: white;
-}
-
-.emptyState {
-  padding: 40px 0;
-  text-align: center;
-  color: #94A3B8;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
+/* Modal */
 .modalOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(9, 9, 11, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
 }
 
 .modal {
   background: white;
-  border-radius: 24px;
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 400px;
-  padding: 32px;
-  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  padding: 40px;
+  box-shadow: var(--shadow-xl);
 }
 
 .modalTitle {
   font-size: 20px;
   font-weight: 800;
+  color: var(--secondary);
   margin-bottom: 24px;
 }
 
-.formGroup {
-  margin-bottom: 20px;
-}
-
-.label {
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #475569;
-}
-
-.input {
+.modalInput {
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid #E2E8F0;
-  font-size: 14px;
-  transition: all 0.2s ease;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  font-size: 15px;
+  margin-bottom: 24px;
 }
 
-.input:focus {
-  outline: none;
-  border-color: #1a1a1a;
-  box-shadow: 0 0 0 4px rgba(0,0,0,0.05);
-}
-
-.modalFooter {
+.modalActions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 32px;
 }
 
 .cancelBtn {
-  background: #F1F5F9;
-  color: #475569;
+  background: var(--bg-app);
+  color: var(--text-muted);
   border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
   font-weight: 700;
-  cursor: pointer;
 }
 
 .confirmBtn {
-  background: #1a1a1a;
+  background: var(--secondary);
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
   font-weight: 700;
-  cursor: pointer;
 }
 
-.loadingArea {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: center;
-  justify-content: center;
-  padding: 100px 0;
-  color: #94A3B8;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@media (max-width: 1024px) {
+  .mainLayout {
+    grid-template-columns: 1fr;
+  }
 }

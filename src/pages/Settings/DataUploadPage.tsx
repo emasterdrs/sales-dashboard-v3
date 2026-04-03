@@ -22,6 +22,7 @@ const DataUploadPage: React.FC = () => {
   const [resetType, setResetType] = useState<'data' | 'factory' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+  const [progress, setProgress] = useState(0);
   const [orgMap, setOrgMap] = useState<any>({ divisions: {}, teamMap: {}, staffMap: {}, catMap: {} });
   const [resetConfirmation, setResetConfirmation] = useState('');
 
@@ -101,48 +102,62 @@ const DataUploadPage: React.FC = () => {
 
       const local = { ...orgMap };
 
-      // Provisioning Logic (Optimized v2.4)
-      for (const r of rows) {
-          // Division
-          if (r.div && !local.divisions[r.div]) {
-              const { data: d } = await supabase.from('sales_divisions').insert({ company_id: cid, name: r.div }).select().maybeSingle();
-              if (d) local.divisions[r.div] = d.id;
-              else {
-                  const { data: e } = await supabase.from('sales_divisions').select('id').eq('company_id', cid).eq('name', r.div).maybeSingle();
-                  if (e) local.divisions[r.div] = e.id;
-              }
-          }
-          // Team
-          const dId = local.divisions[r.div] || null;
-          if (r.team && dId && !local.teamMap[`${dId}_${r.team}`]) {
-              const { data: t } = await supabase.from('sales_teams').insert({ company_id: cid, division_id: dId, name: r.team }).select().maybeSingle();
-              if (t) local.teamMap[`${dId}_${r.team}`] = t.id;
-              else {
-                  const { data: e } = await supabase.from('sales_teams').select('id').eq('division_id', dId).eq('name', r.team).maybeSingle();
-                  if (e) local.teamMap[`${dId}_${r.team}`] = e.id;
-              }
-          }
-          // Staff (3-Level Composite matching)
-          const tId = dId ? local.teamMap[`${dId}_${r.team}`] : null;
-          if (r.name && tId && !local.staffMap[`${tId}_${r.name}`]) {
-              const { data: s } = await supabase.from('sales_staff').insert({ team_id: tId, name: r.name }).select().maybeSingle();
-              if (s) local.staffMap[`${tId}_${r.name}`] = s.id;
-              else {
-                  const { data: e } = await supabase.from('sales_staff').select('id').eq('team_id', tId).eq('name', r.name).maybeSingle();
-                  if (e) local.staffMap[`${tId}_${r.name}`] = e.id;
-              }
-          }
-          // Category
-          if (r.cat && !local.catMap[r.cat]) {
-              const { data: c } = await supabase.from('product_categories').insert({ company_id: cid, name: r.cat }).select().maybeSingle();
-              if (c) local.catMap[r.cat] = c.id;
-              else {
-                  const { data: e } = await supabase.from('product_categories').select('id').eq('company_id', cid).eq('name', r.cat).maybeSingle();
-                  if (e) local.catMap[r.cat] = e.id;
-              }
-          }
+      // Phase 1: Batch Provisioning (v2.5 High-Speed)
+      setProgress(5);
+      
+      // 1. Divisions
+      const uniqueDivs = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d]);
+      if (uniqueDivs.length > 0) {
+          const { data: newDivs } = await supabase.from('sales_divisions').insert(uniqueDivs.map(name => ({ company_id: cid, name }))).select();
+          newDivs?.forEach(d => local.divisions[d.name] = d.id);
       }
+      setProgress(15);
 
+      // 2. Teams (Need division_id)
+      const uniqueTeams = Array.from(new Set(rows.map(r => `${r.div}|${r.team}`))).filter(key => {
+          const [dName, tName] = key.split('|');
+          const dId = local.divisions[dName];
+          return dId && tName && !local.teamMap[`${dId}_${tName}`];
+      });
+      if (uniqueTeams.length > 0) {
+          const teamInserts = uniqueTeams.map(key => {
+              const [dName, tName] = key.split('|');
+              return { company_id: cid, division_id: local.divisions[dName], name: tName };
+          });
+          const { data: newTeams } = await supabase.from('sales_teams').insert(teamInserts).select();
+          newTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+      }
+      setProgress(30);
+
+      // 3. Staff (Need team_id)
+      const uniqueStaff = Array.from(new Set(rows.map(r => `${r.div}|${r.team}|${r.name}`))).filter(key => {
+          const [dName, tName, sName] = key.split('|');
+          const dId = local.divisions[dName];
+          const tId = dId ? local.teamMap[`${dId}_${tName}`] : null;
+          return tId && sName && !local.staffMap[`${tId}_${sName}`];
+      });
+      if (uniqueStaff.length > 0) {
+          const staffInserts = uniqueStaff.map(key => {
+              const [dName, tName, sName] = key.split('|');
+              const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
+              return { team_id: tId, name: sName };
+          });
+          const { data: newStaff } = await supabase.from('sales_staff').insert(staffInserts).select();
+          newStaff?.forEach(s => {
+              local.staffMap[`${s.team_id}_${s.name}`] = s.id;
+          });
+      }
+      setProgress(50);
+
+      // 4. Categories
+      const uniqueCats = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c]);
+      if (uniqueCats.length > 0) {
+          const { data: newCats } = await supabase.from('product_categories').insert(uniqueCats.map(name => ({ company_id: cid, name }))).select();
+          newCats?.forEach(c => local.catMap[c.name] = c.id);
+      }
+      setProgress(60);
+
+      // Phase 2: Record Processing
       const finalRecs: any[] = [];
       rows.forEach(r => {
           const dId = local.divisions[r.div];
@@ -158,18 +173,29 @@ const DataUploadPage: React.FC = () => {
       });
 
       setOrgMap(local);
-      let sc = 0; const CHUNK = 200; // 200건 단위 Chunk
+      setProgress(70);
+
+      // Phase 3: Chunked Batch Upsert
+      let sc = 0; const CHUNK = 500; // 500건 단위 Chunk
+      const totalChunks = Math.ceil(finalRecs.length / CHUNK);
+      
       for (let i = 0; i < finalRecs.length; i += CHUNK) {
           const { error: uErr } = await supabase.from('sales_records').upsert(finalRecs.slice(i, i + CHUNK), { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-          if (uErr) errList.push(`저장 오류: ${uErr.message}`); else sc += finalRecs.slice(i, i + CHUNK).length;
+          if (uErr) errList.push(`저장 오류: ${uErr.message}`); 
+          else sc += finalRecs.slice(i, i + CHUNK).length;
+          
+          const currentChunkIdx = Math.floor(i / CHUNK) + 1;
+          const chunkProgress = 70 + Math.floor((currentChunkIdx / totalChunks) * 30);
+          setProgress(chunkProgress);
       }
 
       setResult({ total: rows.length, success: sc, failed: rows.length - sc, errors: errList });
+      setProgress(100);
       if (sc > 0) {
         setFile(null);
         alert(`업로드 완료!\n성공: ${sc}건\n실패: ${rows.length - sc}건`);
       }
-    } catch (e: any) { alert(e.message); } finally { setIsUploading(false); }
+    } catch (e: any) { alert(e.message); } finally { setIsUploading(false); setProgress(0); }
   };
 
   const handleReset = async () => {
@@ -212,6 +238,14 @@ const DataUploadPage: React.FC = () => {
             <li className={styles.instructionItem}><b>헤더 별칭 매핑:</b> '사업부', '성명', '매출액' 등 다양한 이름을 자동으로 인식합니다.</li>
             <li className={styles.instructionItem}><b>3단계 검증:</b> (사업부-팀-성명) 구조를 매칭하여 동명이인 혼선을 방지합니다.</li>
           </ul>
+        </div>
+        <div className={styles.progressArea}>
+           {isUploading && (
+             <div className={styles.progressBarWrapper}>
+               <div className={styles.progressBar} style={{ width: `${progress}%` }} />
+               <span className={styles.progressText}>{progress}% 완료</span>
+             </div>
+           )}
         </div>
         <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : '지능형 대용량 업로드 시작'}

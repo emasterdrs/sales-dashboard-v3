@@ -1,78 +1,66 @@
 .container {
-  padding: 40px;
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
 .titleArea {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: center;
-}
-
-.backBtn {
-  background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748B;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-right: 8px;
-}
-
-.backBtn:hover {
-  background: #F8FAFC;
-  color: #1a1a1a;
-  border-color: #1a1a1a;
 }
 
 .iconWrapper {
-  width: 56px;
-  height: 56px;
-  background: #E2E8F0;
-  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1a1a1a;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -1.5px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #64748B;
-  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .searchBar {
   display: flex;
   align-items: center;
   background: white;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 12px 20px;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   gap: 12px;
   width: 100%;
   max-width: 400px;
+  box-shadow: var(--shadow-sm);
 }
 
 .searchBar input {
   flex: 1;
   border: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--secondary);
 }
 
 .searchBar input:focus {
@@ -81,9 +69,10 @@
 
 .card {
   background: white;
-  border-radius: 24px;
-  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .table {
@@ -93,79 +82,57 @@
 
 .table th {
   text-align: left;
-  padding: 20px;
-  background: #F8FAFC;
-  font-size: 13px;
-  font-weight: 700;
-  color: #94A3B8;
-  border-bottom: 1px solid #E2E8F0;
+  padding: 20px 24px;
+  background: var(--bg-app);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .table td {
-  padding: 20px;
-  border-bottom: 1px solid #F1F5F9;
-  font-size: 14px;
-  color: #475569;
-}
-
-.companyName {
-  font-weight: 700;
-  color: #1e293b;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 15px;
+  color: var(--secondary);
 }
 
 .badge {
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 800;
+  text-transform: uppercase;
 }
 
-.approved {
-  background: #ECFDF5;
-  color: #10B981;
-}
-
-.pending {
-  background: #FFFBEB;
-  color: #F59E0B;
-}
+.approved { background: #dcfce7; color: #166534; }
+.pending { background: #fef3c7; color: #92400e; }
 
 .approveBtn {
-  background: #10B981;
+  background: var(--primary);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  transition: var(--transition);
+}
+
+.approveBtn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
 }
 
 .revokeBtn {
-  background: #F1F5F9;
-  color: #ef4444;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
+  background: var(--bg-app);
+  color: var(--danger);
+  border: 1px solid var(--border-subtle);
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.loadingArea {
-  padding: 100px 0;
-  text-align: center;
-  color: #94A3B8;
-}
-
-.animateSpin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }

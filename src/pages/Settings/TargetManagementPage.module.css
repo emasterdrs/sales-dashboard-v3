@@ -1,41 +1,47 @@
 .container {
-  padding: 40px;
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
 .titleArea {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   align-items: center;
 }
 
 .iconWrapper {
-  width: 56px;
-  height: 56px;
-  background: #E2E8F0;
-  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1a1a1a;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -1.5px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #64748B;
-  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .controls {
@@ -50,66 +56,73 @@
   gap: 16px;
   background: white;
   padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .currentMonth {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--secondary);
   min-width: 100px;
   text-align: center;
 }
 
 .saveBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #1a1a1a;
+  background: var(--primary);
   color: white;
-  border: none;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-weight: 700;
-  cursor: pointer;
+  box-shadow: 0 4px 10px var(--primary-glow);
+  transition: var(--transition);
 }
 
-.saveBtn:disabled {
-  background: #94A3B8;
-  cursor: not-allowed;
+.saveBtn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
 }
 
 .tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid #E2E8F0;
-  padding-bottom: 1px;
+  margin-bottom: 32px;
+  background: var(--bg-app);
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  width: fit-content;
+  border: 1px solid var(--border-subtle);
 }
 
 .tab {
-  padding: 12px 24px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #64748B;
-  background: transparent;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
   border: none;
-  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
+}
+
+.tab:hover {
+  color: var(--primary);
 }
 
 .tabActive {
-  color: #1a1a1a;
-  border-bottom-color: #1a1a1a;
+  background: white;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .card {
   background: white;
-  border-radius: 24px;
-  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-subtle);
   padding: 32px;
+  box-shadow: var(--shadow-md);
 }
 
 .table {
@@ -119,22 +132,24 @@
 
 .table th {
   text-align: left;
-  padding: 16px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #94A3B8;
-  border-bottom: 1px solid #F1F5F9;
+  padding: 16px 24px;
+  background: var(--bg-app);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .table td {
-  padding: 16px;
-  border-bottom: 1px solid #F1F5F9;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .entityName {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--secondary);
 }
 
 .inputGroup {
@@ -148,8 +163,8 @@
 .input {
   flex: 1;
   padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
   font-size: 15px;
   text-align: right;
   font-weight: 700;
@@ -157,45 +172,22 @@
 
 .input:focus {
   outline: none;
-  border-color: #1a1a1a;
+  border-color: var(--primary);
 }
 
 .unitLabel {
   font-size: 14px;
   font-weight: 600;
-  color: #64748B;
-}
-
-.loadingArea {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100px 0;
-  gap: 16px;
-  color: #94A3B8;
-}
-
-.animateSpin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  color: var(--text-dim);
 }
 
 .infoBox {
-  margin-top: 24px;
-  background: #F8FAFC;
+  margin-top: 32px;
+  background: #f0f7ff;
   padding: 24px;
-  border-radius: 16px;
-  display: flex;
-  gap: 16px;
-}
-
-.infoBox p {
+  border-radius: var(--radius-lg);
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
   font-size: 14px;
-  color: #64748B;
   line-height: 1.6;
 }
