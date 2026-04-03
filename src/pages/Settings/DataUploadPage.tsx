@@ -198,7 +198,6 @@ const DataUploadPage: React.FC = () => {
 
       // Phase 2: Record Preparation
       const finalRecs: any[] = [];
-      const totalRowsToProcess = rows.length;
       rows.forEach(r => {
           const dId = local.divisions[r.div];
           const tId = dId ? local.teamMap[`${dId}_${r.team}`] : null;
