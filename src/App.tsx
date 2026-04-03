@@ -11,6 +11,7 @@ import RegisterCompanyPage from './pages/Auth/RegisterCompanyPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import WorkingDaysPage from './pages/Settings/WorkingDaysPage';
 import OrgManagementPage from './pages/Settings/OrgManagementPage';
+import SortManagementPage from './pages/Settings/SortManagementPage';
 import CategoryManagementPage from './pages/Settings/CategoryManagementPage';
 import DataUploadPage from './pages/Settings/DataUploadPage';
 import TargetManagementPage from './pages/Settings/TargetManagementPage';
@@ -78,6 +79,7 @@ const AuthWrapper: React.FC = () => {
       
       {/* Obfuscated Company Admin Routes (Company Management) */}
       <Route path="/adm-s-2s9k2/org" element={<AdminRoute><OrgManagementPage /></AdminRoute>} />
+      <Route path="/adm-s-2s9k2/sort" element={<AdminRoute><SortManagementPage /></AdminRoute>} />
       <Route path="/adm-s-2s9k2/targets" element={<AdminRoute><TargetManagementPage /></AdminRoute>} />
       <Route path="/adm-s-2s9k2/upload" element={<AdminRoute><DataUploadPage /></AdminRoute>} />
       <Route path="/adm-s-2s9k2/days" element={<AdminRoute><WorkingDaysPage /></AdminRoute>} />

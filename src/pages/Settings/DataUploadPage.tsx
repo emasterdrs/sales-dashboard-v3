@@ -99,15 +99,16 @@ const DataUploadPage: React.FC = () => {
         name: row[3] ? String(row[3]).trim() : '',
         customer: row[4] ? String(row[4]).trim() : '',
         item: row[5] ? String(row[5]).trim() : '',
-        amountStr: row[6] ? String(row[6]).trim() : ''
+        amountStr: row[6] ? String(row[6]).trim() : '',
+        categoryName: row[7] ? String(row[7]).trim() : ''
       };
     }).filter(row => row !== null);
   };
 
   const downloadXlsxTemplate = () => {
-    const headers = ["날짜", "사업부", "팀명", "성명", "거래처명", "품목명", "매출액"];
+    const headers = ["날짜", "사업부", "팀명", "성명", "거래처명", "품목명", "매출액", "제품유형"];
     const today = format(new Date(), 'yyyy-MM-dd');
-    const ws = XLSX.utils.aoa_to_sheet([headers, [today, "영업사업부", "영업1팀", "홍길동", "예시거래처", "예시품목", "1000000"]]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, [today, "영업사업부", "영업1팀", "홍길동", "예시거래처", "예시품목", "1000000", "반도체"]]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "양식");
     XLSX.writeFile(wb, `voda_upload_template.xlsx`);
@@ -137,6 +138,7 @@ const DataUploadPage: React.FC = () => {
       const uniqueDivs = [...new Set(rows.map(r => r.divisionName).filter(Boolean))];
       const uniqueTeams = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}`).filter(key => key.split('||')[1]))];
       const uniqueStaff = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}||${r.name}`).filter(key => key.split('||')[2]))];
+      const uniqueCats = [...new Set(rows.map(r => r.categoryName).filter(Boolean))];
 
       // 2. Bulk Create Divisions
       const newDivNames = uniqueDivs.filter(name => !currentOrg.divisions[name]);
@@ -151,7 +153,7 @@ const DataUploadPage: React.FC = () => {
         if (divErr) throw new Error(`Division creation failed: ${divErr.message}`);
         createdDivs?.forEach(d => currentOrg.divisions[d.name] = d.id);
       }
-      setUploadProgress(30);
+      setUploadProgress(20);
 
       // 3. Bulk Create Teams
       const newTeamsToCreate = uniqueTeams.filter(key => {
@@ -175,7 +177,7 @@ const DataUploadPage: React.FC = () => {
         if (teamErr) throw new Error(`Team creation failed: ${teamErr.message}`);
         createdTeams?.forEach(t => currentOrg.teams[`${t.division_id}_${t.name}`] = t.id);
       }
-      setUploadProgress(50);
+      setUploadProgress(40);
 
       // 4. Bulk Create Staff
       const newStaffToCreate = uniqueStaff.filter(key => {
@@ -201,13 +203,28 @@ const DataUploadPage: React.FC = () => {
         if (staffErr) throw new Error(`Staff creation failed: ${staffErr.message}`);
         createdStaff?.forEach(s => currentOrg.staff[`${s.team_id}_${s.name}`] = s.id);
       }
-      setUploadProgress(70);
+      setUploadProgress(60);
 
-      // 5. Ensure '미분류' exists
+      // 5. Bulk Create Categories (제품유형)
+      const newCatNames = uniqueCats.filter(name => !currentOrg.categories[name]);
+      if (newCatNames.length > 0) {
+        const { data: createdCats, error: catErr } = await supabase.from('product_categories').insert(
+          newCatNames.map((name, i) => ({
+            company_id: profile.company_id,
+            name,
+            display_order: Object.keys(currentOrg.categories).length + i
+          }))
+        ).select();
+        if (catErr) throw new Error(`Category creation failed: ${catErr.message}`);
+        createdCats?.forEach(c => currentOrg.categories[c.name] = c.id);
+      }
+
+      // Ensure '미분류' exists
       if (!currentOrg.categories['미분류']) {
         const { data: newCat } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: '미분류', display_order: 999 }).select().single();
         if (newCat) currentOrg.categories['미분류'] = newCat.id;
       }
+      setUploadProgress(80);
 
       // 6. Final Data Preparation and Upsert
       const validRecords: any[] = [];
@@ -215,6 +232,7 @@ const DataUploadPage: React.FC = () => {
         const divId = currentOrg.divisions[row.divisionName];
         const teamId = divId ? currentOrg.teams[`${divId}_${row.teamName}`] : null;
         const staffId = teamId ? currentOrg.staff[`${teamId}_${row.name}`] : null;
+        const categoryId = currentOrg.categories[row.categoryName] || currentOrg.categories['미분류'];
 
         if (!divId || !teamId || !staffId || !row.date) {
             errors.push(`${row._rowIndex}행: 필수 정보 누락 또는 조직 생성 실패`);
@@ -228,7 +246,7 @@ const DataUploadPage: React.FC = () => {
           company_id: profile.company_id,
           staff_id: staffId,
           team_id: teamId,
-          category_id: currentOrg.categories['미분류'],
+          category_id: categoryId,
           customer_name: row.customer || '미지정',
           item_name: row.item || '미지정',
           amount: cleanAmount,
@@ -240,7 +258,6 @@ const DataUploadPage: React.FC = () => {
 
       let successCount = 0;
       if (validRecords.length > 0) {
-        // Chunk upserts if data is very large (optional, but good for stability)
         const { error } = await supabase.from('sales_records').upsert(validRecords, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
         if (error) errors.push(`최종 데이터 저장 오류: ${error.message}`);
         else successCount = validRecords.length;
@@ -278,8 +295,8 @@ const DataUploadPage: React.FC = () => {
         <div className={styles.titleArea}>
           <div className={styles.iconWrapper}><Zap size={28} className={styles.zapIcon} /></div>
           <div>
-            <h1 className={styles.title}>인텔리전트 조직 자동 매핑 업로드</h1>
-            <p className={styles.subtitle}>사업부, 팀, 사원이 없어도 엑셀만 올리면 자동으로 생성되고 매핑됩니다.</p>
+            <h1 className={styles.title}>인텔리전트 조직 및 제품유형 자동 업로드</h1>
+            <p className={styles.subtitle}>사업부, 팀, 사원, 제품유형이 없어도 엑셀만 올리면 자동으로 생성되고 매핑됩니다.</p>
           </div>
         </div>
       </header>
@@ -302,21 +319,21 @@ const DataUploadPage: React.FC = () => {
         )}
 
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>⚡ 자동 조직 생성 가이드 (Auto-Provisioning)</h3>
+          <h3 className={styles.instructionTitle}>⚡ 지능형 업로드 가이드</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>사업부/팀/사원:</b> 존재하지 않는 조직은 업로드 시 자동으로 생성됩니다.</li>
-            <li className={styles.instructionItem}><b>카테고리:</b> 모든 품목은 자동으로 '미분류' 카테고리에 할당됩니다.</li>
+            <li className={styles.instructionItem}><b>조직/유형 자동생성:</b> 존재하지 않는 사업부, 팀, 사원, 제품유형은 자동으로 생성됩니다.</li>
+            <li className={styles.instructionItem}><b>제품유형 필터링:</b> 유형이 빈칸인 데이터는 대시보드 '유형별 실적' 분석에서 제외됩니다.</li>
             <li className={styles.instructionItem}><b>날짜 인식:</b> YYYY.MM.DD 등 다양한 형식을 스마트하게 처리합니다.</li>
-            <li className={styles.instructionItem}><b>순서:</b> 날짜, 사업부, 팀명, 성명, 거래처명, 품목명, 매출액 (7개 고정)</li>
+            <li className={styles.instructionItem}><b>순서:</b> 날짜, 사업부, 팀명, 성명, 거래처명, 품목명, 매출액, 제품유형 (8개 고정)</li>
           </ul>
           <button className={styles.downloadTemplate} onClick={downloadXlsxTemplate}>
-            <Download size={14} /> 표준 엑셀 양식 다운로드 (.xlsx)
+            <Download size={14} /> 최신 표준 양식 다운로드 (.xlsx)
           </button>
         </div>
 
         <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : <CheckCircle2 size={20} />}
-          {isUploading ? `조직 분석 및 생성 중... ${uploadProgress}%` : '엑셀 업로드 및 조직 자동 생성 시작'}
+          {isUploading ? `데이터 분석 및 인프라 구성 중... ${uploadProgress}%` : '엑셀 업로드 시작'}
         </button>
 
         {isUploading && (

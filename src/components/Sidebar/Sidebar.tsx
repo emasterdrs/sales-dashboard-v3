@@ -13,6 +13,7 @@ import {
   LogOut,
   MessageSquare,
   Database as DatabaseIcon,
+  GripVertical,
 } from 'lucide-react';
 
 import { Link, useLocation } from 'react-router-dom';
@@ -106,6 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
       items: [
         { icon: Calendar, label: "영업일수 설정", path: "/adm-s-2s9k2/days" },
         { icon: Users, label: "조직 및 인원", path: "/adm-s-2s9k2/org" },
+        { icon: GripVertical, label: "정렬 순서 관리", path: "/adm-s-2s9k2/sort" },
         { icon: Target, label: "목표 실적 설정", path: "/adm-s-2s9k2/targets" },
         { icon: Settings, label: "유형명 설정", path: "/adm-s-2s9k2/types" },
         { icon: Database, label: "데이터 업로드", path: "/adm-s-2s9k2/upload" },
