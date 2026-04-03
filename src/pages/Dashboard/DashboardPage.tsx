@@ -118,6 +118,18 @@ const DashboardPage: React.FC = () => {
     return all;
   };
 
+  const calcMetrics = (perf: number, target: number, progressLimit: number) => {
+    if (isYoyMode) {
+      const achieve = target > 0 ? ((perf - target) / target) * 100 : 0;
+      const gap = perf - target;
+      return { achieve, expectedAtNow: target, gap };
+    }
+    const achieve = target > 0 ? (perf / target) * 100 : 0;
+    const expectedAtNow = target * progressLimit;
+    const gap = perf - expectedAtNow;
+    return { achieve, expectedAtNow, gap };
+  };
+
   const fetchTargets = async (entityType: string, ids: string[], groupType: string, filterCol?: string, filterVal?: string) => {
     if (!profile?.company_id) return [];
     if (isYoyMode) {
@@ -168,14 +180,13 @@ const DashboardPage: React.FC = () => {
       const totalGoal = (targets || []).reduce((acc: any, t: any) => acc + parseNum(t.target_amount), 0);
       
       const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
-      const expectedAtNow = totalGoal * progressLimit;
-      const gap = totalPerf - expectedAtNow;
+      const metrics = calcMetrics(totalPerf, totalGoal, progressLimit);
 
       setSummaryData({
         goal: formatValue(totalGoal),
         performance: formatValue(totalPerf),
-        achievementRate: totalGoal > 0 ? ((totalPerf / totalGoal) * 100).toFixed(1) : '0',
-        progressGap: (gap >= 0 ? '+' : '') + formatValue(gap),
+        achievementRate: metrics.achieve.toFixed(1),
+        progressGap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap),
         originalGoalVal: totalGoal,
         originalPerfVal: totalPerf
       });
@@ -234,19 +245,17 @@ const DashboardPage: React.FC = () => {
             const target = parseNum((targets || []).find((tg: any) => tg.entity_id === d.id)?.target_amount || 0);
             const divisionPerf = Number(perfMap.get(d.id) || 0);
             
-            const achieve = target > 0 ? (divisionPerf / target) * 100 : 0;
-            const expectedAtNow = target * progressLimit;
-            const gap = divisionPerf - expectedAtNow;
+            const metrics = calcMetrics(divisionPerf, target, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? divisionPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = target > 0 ? (expected / target) * 100 : 0;
+            const expectedAchieve = target > 0 ? (isYoyMode ? ((expected - target) / target) * 100 : (expected / target) * 100) : 0;
             const expectedGap = expected - target;
 
             return {
               id: d.id, name: d.name,
-              goal: formatValue(target), performance: formatValue(divisionPerf), achieve: achieve.toFixed(1),
-              gap: (gap >= 0 ? '+' : '') + formatValue(gap),
+              goal: formatValue(target), performance: formatValue(divisionPerf), achieve: metrics.achieve.toFixed(1),
+              gap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap),
               expectedGoal: formatValue(target), expectedPerformance: formatValue(expected),
               expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
             };
@@ -263,16 +272,14 @@ const DashboardPage: React.FC = () => {
           data = (teams || []).map(t => {
             const teamTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === t.id)?.target_amount || 0);
             const teamPerf = Number(perfMap.get(t.id) || 0);
-            const achieve = teamTarget > 0 ? (teamPerf / teamTarget) * 100 : 0;
-            const expectedAtNow = teamTarget * progressLimit;
-            const gap = teamPerf - expectedAtNow;
+            const metrics = calcMetrics(teamPerf, teamTarget, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? teamPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = teamTarget > 0 ? (expected / teamTarget) * 100 : 0;
+            const expectedAchieve = teamTarget > 0 ? (isYoyMode ? ((expected - teamTarget) / teamTarget) * 100 : (expected / teamTarget) * 100) : 0;
             const expectedGap = expected - teamTarget;
 
-            return { id: t.id, name: t.name, goal: formatValue(teamTarget), performance: formatValue(teamPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(teamTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: t.id, name: t.name, goal: formatValue(teamTarget), performance: formatValue(teamPerf), achieve: metrics.achieve.toFixed(1), gap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap), expectedGoal: formatValue(teamTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 2 && selectedIds.teamId) {
@@ -286,16 +293,14 @@ const DashboardPage: React.FC = () => {
           data = (staff || []).map(s => {
             const staffTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === s.id)?.target_amount || 0);
             const staffPerf = Number(perfMap.get(s.id) || 0);
-            const achieve = staffTarget > 0 ? (staffPerf / staffTarget) * 100 : 0;
-            const expectedAtNow = staffTarget * progressLimit;
-            const gap = staffPerf - expectedAtNow;
+            const metrics = calcMetrics(staffPerf, staffTarget, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? staffPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = staffTarget > 0 ? (expected / staffTarget) * 100 : 0;
+            const expectedAchieve = staffTarget > 0 ? (isYoyMode ? ((expected - staffTarget) / staffTarget) * 100 : (expected / staffTarget) * 100) : 0;
             const expectedGap = expected - staffTarget;
 
-            return { id: s.id, name: s.name, goal: formatValue(staffTarget), performance: formatValue(staffPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(staffTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: s.id, name: s.name, goal: formatValue(staffTarget), performance: formatValue(staffPerf), achieve: metrics.achieve.toFixed(1), gap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap), expectedGoal: formatValue(staffTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
@@ -320,16 +325,14 @@ const DashboardPage: React.FC = () => {
             const target = parseNum((targets || []).find((tg: any) => tg.entity_id === c.id)?.target_amount || 0);
             const catPerf = Number(perfMap.get(c.id) || 0);
             
-            const achieve = target > 0 ? (catPerf / target) * 100 : 0;
-            const expectedAtNow = target * progressLimit;
-            const gap = catPerf - expectedAtNow;
+            const metrics = calcMetrics(catPerf, target, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? catPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = target > 0 ? (expected / target) * 100 : 0;
+            const expectedAchieve = target > 0 ? (isYoyMode ? ((expected - target) / target) * 100 : (expected / target) * 100) : 0;
             const expectedGap = expected - target;
 
-            return { id: c.id, name: c.name, goal: formatValue(target), performance: formatValue(catPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(target), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: c.id, name: c.name, goal: formatValue(target), performance: formatValue(catPerf), achieve: metrics.achieve.toFixed(1), gap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap), expectedGoal: formatValue(target), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 1 && selectedIds.categoryId) {
@@ -425,6 +428,12 @@ const DashboardPage: React.FC = () => {
       setSelectedIds(newIds);
     }
   };
+
+  const expectedTotalPerf = (summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total;
+  const expectedTotalAchieve = isYoyMode 
+      ? ((expectedTotalPerf - (summaryData.originalGoalVal || 0)) / (summaryData.originalGoalVal || 1) * 100).toFixed(1)
+      : (expectedTotalPerf / (summaryData.originalGoalVal || 1) * 100).toFixed(1);
+  const expectedTotalGap = expectedTotalPerf - (summaryData.originalGoalVal || 0);
 
   return (
     <div className={`${styles.page} fade-in`}>
@@ -551,20 +560,16 @@ const DashboardPage: React.FC = () => {
         <div className={styles.fullWidth}>
           <SummaryGrid 
             goal={summaryData.goal}
-            performance={isExpectedClosingOn ? formatValue((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) : summaryData.performance}
-            achievementRate={isExpectedClosingOn 
-              ? (((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) / (summaryData.originalGoalVal || 1) * 100).toFixed(1)
-              : summaryData.achievementRate
-            }
+            performance={isExpectedClosingOn ? formatValue(expectedTotalPerf) : summaryData.performance}
+            achievementRate={isExpectedClosingOn ? expectedTotalAchieve : summaryData.achievementRate}
             progressGap={isExpectedClosingOn
-              ? ((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal) >= 0 ? '+' : '') + 
-                 formatValue((((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) - summaryData.originalGoalVal))
+              ? (expectedTotalGap >= 0 ? '+' : '') + formatValue(expectedTotalGap)
               : summaryData.progressGap
             }
             unit={getUnitName()}
             isExpected={isExpectedClosingOn}
-            isWarning={isExpectedClosingOn && ((summaryData.originalPerfVal / (workingDays.current > 0 ? workingDays.current : 1)) * workingDays.total) < summaryData.originalGoalVal}
-            labelOverrides={isYoyMode ? { goal: '전년 동월', achievementRate: '전년대비', progressGap: '전년대비(액)' } : undefined}
+            isWarning={isExpectedClosingOn && expectedTotalPerf < (summaryData.originalGoalVal || 0)}
+            labelOverrides={isYoyMode ? { goal: '전년 동월', achievementRate: '전년대비(성장률)', progressGap: '전년대비(성장액)' } : undefined}
           />
         </div>
 
