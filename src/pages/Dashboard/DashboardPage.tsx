@@ -64,6 +64,17 @@ const DashboardPage: React.FC = () => {
   const [trendData, setTrendData] = useState<any[]>([]);
   const [displayData, setDisplayData] = useState<DashboardData[]>([]);
   const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const parseNum = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val === 'string') {
+      const cleaned = val.replace(/,/g, '');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? 0 : num;
+    }
+    return isNaN(Number(val)) ? 0 : Number(val);
+  };
 
   useEffect(() => {
     initDashboard();
@@ -94,9 +105,10 @@ const DashboardPage: React.FC = () => {
 
   const initDashboard = async () => {
     if (!profile?.company_id) return;
+    setIsLoading(true);
     try {
       const { data: wd } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month).single();
-      if (wd) setWorkingDays({ total: wd.total_days, current: Math.min(wd.total_days, 15) }); 
+      if (wd) setWorkingDays({ total: parseNum(wd.total_days), current: Math.min(parseNum(wd.total_days), 15) }); 
 
       const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
       const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
@@ -117,8 +129,8 @@ const DashboardPage: React.FC = () => {
         .eq('year', year)
         .eq('month', month);
 
-      const totalPerf = filteredRecords.reduce((acc, r) => acc + Number(r.amount), 0);
-      const totalGoal = (targets || []).reduce((acc, t) => acc + Number(t.target_amount), 0);
+      const totalPerf = filteredRecords.reduce((acc, r) => acc + parseNum(r.amount), 0);
+      const totalGoal = (targets || []).reduce((acc, t) => acc + parseNum(t.target_amount), 0);
       
       const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
       const expectedAtNow = totalGoal * progressLimit;
@@ -147,17 +159,20 @@ const DashboardPage: React.FC = () => {
       const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
       trendRecs.forEach(p => {
         const m = new Date(p.sales_date).getMonth();
-        monthMap[m].performance += Number(p.amount);
+        monthMap[m].performance += parseNum(p.amount);
       });
 
       setTrendData(monthMap.map(m => ({ ...m, performance: Number(formatValue(m.performance)) })));
     } catch (err) {
       console.error('Init Error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const refreshDrillDownData = async () => {
     if (!profile?.company_id) return;
+    setIsLoading(true);
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
     const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
@@ -168,125 +183,129 @@ const DashboardPage: React.FC = () => {
       if (!isTypeMode) {
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
-          const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month);
+          const ids = (divisions || []).map(d => d.id);
+          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
           const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
           const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
 
           data = (divisions || []).map(d => {
-            const target = (targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0;
+            const target = parseNum((targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0);
             const divTeamIds = (teamList || []).filter(t => t.division_id === d.id).map(t => t.id);
-            const divisionPerf = (perf || []).filter(p => divTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + Number(p.amount), 0);
+            const divisionPerf = (perf || []).filter(p => divTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + parseNum(p.amount), 0);
             
-            const achieve = target > 0 ? (divisionPerf / Number(target)) * 100 : 0;
-            const expectedAtNow = Number(target) * progressLimit;
+            const achieve = target > 0 ? (divisionPerf / target) * 100 : 0;
+            const expectedAtNow = target * progressLimit;
             const gap = divisionPerf - expectedAtNow;
 
             const dailyAvg = workingDays.current > 0 ? divisionPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = target > 0 ? (expected / Number(target)) * 100 : 0;
-            const expectedGap = expected - Number(target);
+            const expectedAchieve = target > 0 ? (expected / target) * 100 : 0;
+            const expectedGap = expected - target;
 
             return {
               id: d.id, name: d.name,
-              goal: formatValue(Number(target)), performance: formatValue(divisionPerf), achieve: achieve.toFixed(1),
+              goal: formatValue(target), performance: formatValue(divisionPerf), achieve: achieve.toFixed(1),
               gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-              expectedGoal: formatValue(Number(target)), expectedPerformance: formatValue(expected),
+              expectedGoal: formatValue(target), expectedPerformance: formatValue(expected),
               expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
             };
           });
         } 
         else if (currentLevel === 1 && selectedIds.divisionId) {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
-          const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month);
+          const ids = (teams || []).map(t => t.id);
+          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
           const { data: perf } = await supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (teams || []).map(t => {
-            const teamTarget = (targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0;
-            const teamPerf = (perf || []).filter(p => p.team_id === t.id).reduce((acc, p) => acc + Number(p.amount), 0);
-            const achieve = teamTarget > 0 ? (teamPerf / Number(teamTarget)) * 100 : 0;
-            const expectedAtNow = Number(teamTarget) * progressLimit;
+            const teamTarget = parseNum((targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0);
+            const teamPerf = (perf || []).filter(p => p.team_id === t.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const achieve = teamTarget > 0 ? (teamPerf / teamTarget) * 100 : 0;
+            const expectedAtNow = teamTarget * progressLimit;
             const gap = teamPerf - expectedAtNow;
 
             const dailyAvg = workingDays.current > 0 ? teamPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = teamTarget > 0 ? (expected / Number(teamTarget)) * 100 : 0;
-            const expectedGap = expected - Number(teamTarget);
+            const expectedAchieve = teamTarget > 0 ? (expected / teamTarget) * 100 : 0;
+            const expectedGap = expected - teamTarget;
 
-            return { id: t.id, name: t.name, goal: formatValue(Number(teamTarget)), performance: formatValue(teamPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(teamTarget)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: t.id, name: t.name, goal: formatValue(teamTarget), performance: formatValue(teamPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(teamTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 2 && selectedIds.teamId) {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
-          const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month);
+          const ids = (staff || []).map(s => s.id);
+          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
           const { data: perf } = await supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (staff || []).map(s => {
-            const staffTarget = (targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0;
-            const staffPerf = (perf || []).filter(p => p.staff_id === s.id).reduce((acc, p) => acc + Number(p.amount), 0);
-            const achieve = staffTarget > 0 ? (staffPerf / Number(staffTarget)) * 100 : 0;
-            const expectedAtNow = Number(staffTarget) * progressLimit;
+            const staffTarget = parseNum((targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0);
+            const staffPerf = (perf || []).filter(p => p.staff_id === s.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const achieve = staffTarget > 0 ? (staffPerf / staffTarget) * 100 : 0;
+            const expectedAtNow = staffTarget * progressLimit;
             const gap = staffPerf - expectedAtNow;
 
             const dailyAvg = workingDays.current > 0 ? staffPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = staffTarget > 0 ? (expected / Number(staffTarget)) * 100 : 0;
-            const expectedGap = expected - Number(staffTarget);
+            const expectedAchieve = staffTarget > 0 ? (expected / staffTarget) * 100 : 0;
+            const expectedGap = expected - staffTarget;
 
-            return { id: s.id, name: s.name, goal: formatValue(Number(staffTarget)), performance: formatValue(staffPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(staffTarget)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: s.id, name: s.name, goal: formatValue(staffTarget), performance: formatValue(staffPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(staffTarget), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
           const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate).lte('sales_date', endDate);
           const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + Number(p.amount)));
+          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
           const { data: perf } = await supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
           const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + Number(p.amount)));
+          (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
       } else {
         // --- TYPE BASED MODE ---
         if (currentLevel === 0) {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
-          const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month);
+          const ids = (cats || []).map(c => c.id);
+          const { data: targets } = ids.length > 0 ? await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids) : { data: [] };
           const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
 
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
-            const target = (targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0;
-            const catPerf = (perf || []).filter(p => p.category_id === c.id).reduce((acc, p) => acc + Number(p.amount), 0);
+            const target = parseNum((targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0);
+            const catPerf = (perf || []).filter(p => p.category_id === c.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
             
-            const achieve = target > 0 ? (catPerf / Number(target)) * 100 : 0;
-            const expectedAtNow = Number(target) * progressLimit;
+            const achieve = target > 0 ? (catPerf / target) * 100 : 0;
+            const expectedAtNow = target * progressLimit;
             const gap = catPerf - expectedAtNow;
 
             const dailyAvg = workingDays.current > 0 ? catPerf / workingDays.current : 0;
             const expected = dailyAvg * workingDays.total;
-            const expectedAchieve = target > 0 ? (expected / Number(target)) * 100 : 0;
-            const expectedGap = expected - Number(target);
+            const expectedAchieve = target > 0 ? (expected / target) * 100 : 0;
+            const expectedGap = expected - target;
 
-            return { id: c.id, name: c.name, goal: formatValue(Number(target)), performance: formatValue(catPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(target)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
+            return { id: c.id, name: c.name, goal: formatValue(target), performance: formatValue(catPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(target), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 1 && selectedIds.categoryId) {
           const { data: perf } = await supabase.from('sales_records').select('amount, staff_id').eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
           const { data: staffList } = await supabase.from('sales_staff').select('id, name').order('display_order', { ascending: true });
           const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.staff_id, (map.get(p.staff_id) || 0) + Number(p.amount)));
+          (perf || []).forEach(p => map.set(p.staff_id, (map.get(p.staff_id) || 0) + parseNum(p.amount)));
           data = (staffList || []).filter(s => map.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(map.get(s.id) || 0), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 2 && selectedIds.staffId && selectedIds.categoryId) {
           const { data: perf } = await supabase.from('sales_records').select('amount, customer_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
           const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + Number(p.amount)));
+          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 3 && selectedIds.staffId && selectedIds.categoryId && selectedIds.customerName) {
             const { data: perf } = await supabase.from('sales_records').select('amount, item_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
             const map = new Map<string, number>();
-            (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + Number(p.amount)));
+            (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + parseNum(p.amount)));
             data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
       }
@@ -294,6 +313,8 @@ const DashboardPage: React.FC = () => {
       setDisplayData(data);
     } catch (err) {
       console.error('Refresh Error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -438,46 +459,52 @@ const DashboardPage: React.FC = () => {
           </div>
           
           <div className={styles.chartWrapper}>
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
-                  dy={10} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: 'var(--radius-lg)', 
-                    border: '1px solid var(--border-subtle)', 
-                    boxShadow: 'var(--shadow-xl)',
-                    fontWeight: 700
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="performance" 
-                  stroke="var(--primary)" 
-                  strokeWidth={4} 
-                  fillOpacity={1} 
-                  fill="url(#colorIndigo)" 
-                  name="실적" 
-                  animationDuration={1500}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <span className={styles.pulse}></span> 데이터 로딩중...
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={trendData}>
+                  <defs>
+                    <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="month" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                    dy={10} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: 'var(--text-dim)', fontSize: 12, fontWeight: 700}} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: 'var(--radius-lg)', 
+                      border: '1px solid var(--border-subtle)', 
+                      boxShadow: 'var(--shadow-xl)',
+                      fontWeight: 700
+                    }} 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="performance" 
+                    stroke="var(--primary)" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorIndigo)" 
+                    name="실적" 
+                    animationDuration={1500}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -501,14 +528,20 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <div className={styles.fullWidth}>
-          <DrillDownTable 
-            breadcrumbs={breadcrumbs}
-            onBreadcrumbClick={handleBreadcrumbClick}
-            data={displayData}
-            onRowClick={handleRowClick}
-            columns={columns}
-            isExpectedClosingOn={isExpectedClosingOn}
-          />
+          {isLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
+              데이터를 동기화하고 있습니다...
+            </div>
+          ) : (
+            <DrillDownTable 
+              breadcrumbs={breadcrumbs}
+              onBreadcrumbClick={handleBreadcrumbClick}
+              data={displayData}
+              onRowClick={handleRowClick}
+              columns={columns}
+              isExpectedClosingOn={isExpectedClosingOn}
+            />
+          )}
         </div>
       </div>
     </div>
