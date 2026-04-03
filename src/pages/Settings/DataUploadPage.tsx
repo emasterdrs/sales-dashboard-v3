@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Database, Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Download, Trash2, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { parse, format, isValid } from 'date-fns';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './DataUploadPage.module.css';
@@ -19,59 +20,63 @@ const DataUploadPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
-  const [staffMap, setStaffMap] = useState<Record<string, string>>({});
+  
+  // Advanced mapping for 3-level validation
+  const [orgMap, setOrgMap] = useState<{
+    branches: Set<string>;
+    teamsByBranch: Record<string, Set<string>>;
+    staffByBranchTeam: Record<string, { id: string; teamId: string }>;
+  }>({
+    branches: new Set(),
+    teamsByBranch: {},
+    staffByBranchTeam: {}
+  });
+
   const [resetConfirmation, setResetConfirmation] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
-    fetchStaffInfo();
+    fetchOrgInfo();
   }, [profile?.company_id]);
 
-  const fetchStaffInfo = async () => {
+  const fetchOrgInfo = async () => {
     if (!profile?.company_id) return;
     try {
-      // Get all branches, teams, and staff for this company
       const { data: branches } = await supabase.from('sales_branches').select('id, name').eq('company_id', profile.company_id);
       const { data: teams } = await supabase.from('sales_teams').select('id, name, branch_id').eq('company_id', profile.company_id);
       const { data: staff } = await supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map(t => t.id) || []);
       
-      const branchMap: Record<string, string> = {};
-      branches?.forEach(b => branchMap[b.id] = b.name);
-      
-      const teamInfoMap: Record<string, { name: string; branchName: string }> = {};
-      teams?.forEach(t => {
-        teamInfoMap[t.id] = { name: t.name, branchName: branchMap[t.branch_id || ''] || '미지정' };
+      const bSet = new Set<string>();
+      const tMap: Record<string, Set<string>> = {};
+      const sMap: Record<string, { id: string; teamId: string }> = {};
+
+      const branchIdToName: Record<string, string> = {};
+      branches?.forEach(b => {
+        const bName = b.name.trim();
+        bSet.add(bName);
+        branchIdToName[b.id] = bName;
       });
-      
-      const map: Record<string, { id: string; teamId: string }> = {};
-      (staff || []).forEach(s => {
-        const info = teamInfoMap[s.team_id];
+
+      const teamIdToInfo: Record<string, { name: string; branchName: string }> = {};
+      teams?.forEach(t => {
+        const branchName = branchIdToName[t.branch_id || ''] || '미지정';
+        const teamName = t.name.trim();
+        if (!tMap[branchName]) tMap[branchName] = new Set();
+        tMap[branchName].add(teamName);
+        teamIdToInfo[t.id] = { name: teamName, branchName };
+      });
+
+      staff?.forEach(s => {
+        const info = teamIdToInfo[s.team_id];
         if (info) {
-          const lookupKey = `${info.branchName}_${info.name}_${s.name}`;
-          map[lookupKey] = { id: s.id, teamId: s.team_id };
+          const key = `${info.branchName}_${info.name}_${s.name.trim()}`;
+          sMap[key] = { id: s.id, teamId: s.team_id };
         }
       });
-      setStaffMap(map as any);
+
+      setOrgMap({ branches: bSet, teamsByBranch: tMap, staffByBranchTeam: sMap });
     } catch (err) {
-      console.error('Error fetching staff info:', err);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setResult(null);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-      setResult(null);
+      console.error('Error fetching org info:', err);
     }
   };
 
@@ -83,79 +88,67 @@ const DataUploadPage: React.FC = () => {
     
     if (rawData.length < 2) return [];
 
-    const entries = rawData.slice(1).map((row, index) => {
+    return rawData.slice(1).map((row, index) => {
       if (!row || row.length === 0) return null;
       
       let dateValue = row[0];
-      // Excel Serial Date Conversion
+      let cleanDate = '';
+
+      // 1. Flexible Date Parsing
       if (typeof dateValue === 'number') {
         const dateObj = XLSX.SSF.parse_date_code(dateValue);
-        dateValue = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+        cleanDate = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
+      } else if (dateValue) {
+        let dateStr = String(dateValue).trim().replace(/\./g, '-').replace(/\//g, '-');
+        const formats = ['yyyy-MM-dd', 'yyyy-M-d', 'yyyyMMdd'];
+        for (const f of formats) {
+          const parsed = parse(dateStr, f, new Date());
+          if (isValid(parsed)) {
+            cleanDate = format(parsed, 'yyyy-MM-dd');
+            break;
+          }
+        }
       }
-
 
       return {
         _rowIndex: index + 2,
-        date: dateValue ? String(dateValue).trim() : '',
+        date: cleanDate,
         branchName: row[1] ? String(row[1]).trim() : '',
         teamName: row[2] ? String(row[2]).trim() : '',
         name: row[3] ? String(row[3]).trim() : '',
         customer: row[4] ? String(row[4]).trim() : '',
         item: row[5] ? String(row[5]).trim() : '',
-        amountStr: row[6] ? String(row[6]) : ''
+        amountStr: row[6] ? String(row[6]).trim() : ''
       };
     }).filter(row => row !== null);
+  };
+
+  const downloadXlsxTemplate = () => {
+    const headers = ["날짜", "지점명", "팀명", "성명", "거래처명", "품목명", "매출액"];
+    const today = format(new Date(), 'yyyy-MM-dd');
     
-    return entries;
-  };
+    const samples: any[][] = [];
+    Object.keys(orgMap.staffByBranchTeam).slice(0, 5).forEach(key => {
+      const parts = key.split('_');
+      samples.push([today, parts[0], parts[1], parts[2], "예시_거래처", "예시_품목", "1000000"]);
+    });
 
-  const downloadTemplate = () => {
-    const csvContent = "날짜,성명,거래처,품목,금액(원),category_id\n2025-03-01,홍길동,(주)이마트,오렌지10kg,150000,cat_id_1";
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "sales_upload_template.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    if (samples.length === 0) {
+      samples.push([today, "본사", "영업1팀", "홍길동", "삼성전자", "반도체수주", "50000000"]);
+    }
 
-  const validateDate = (dateStr: string) => {
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateStr)) return false;
-    const date = new Date(dateStr);
-    return date instanceof Date && !isNaN(date.getTime());
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...samples]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "양식");
+    XLSX.writeFile(wb, `voda_upload_template_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
-
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const startUpload = async () => {
-    // 1. If company_id is missing, try to re-fetch profile first to handle stale state
-    if (!profile?.company_id && fetchProfile) {
-      console.log('[Upload Debug] Company ID missing, attempting to re-fetch profile...');
-      await fetchProfile();
-    }
+    if (!profile?.company_id && fetchProfile) await fetchProfile();
+    if (!file) { alert('파일을 선택해 주세요.'); return; }
 
-    // Re-check after potential fetch
-    console.log('[Upload Debug] Current Profile:', profile);
-    console.log('[Upload Debug] Company ID:', profile?.company_id);
-    console.log('[Upload Debug] Role:', effectiveRole);
-
-    if (!file) {
-      alert('파일을 선택해 주세요.');
-      return;
-    }
-
-    // Bypass check if Super Admin - they represent the platform anyway
     const canUpload = profile?.company_id || effectiveRole === 'SUPER_ADMIN';
-
-    if (!canUpload) {
-       console.error('[Upload Debug] Blocking upload: profile.company_id is missing and not SUPER_ADMIN.');
-       alert('기업 정보가 확인되지 않습니다. 로그아웃 후 다시 로그인 혹은 소속 설정을 완료해 주세요.');
-       return;
-    }
+    if (!canUpload) { alert('기업 정보가 확인되지 않습니다.'); return; }
 
     setIsUploading(true);
     setResult(null);
@@ -163,47 +156,42 @@ const DataUploadPage: React.FC = () => {
     
     try {
       const rows = await parseExcelOrCsv(file);
-      
       if (rows.length === 0) {
-        setResult({ total: 0, success: 0, failed: 0, errors: ["파일에 유효한 데이터가 없습니다."] });
-        setIsUploading(false);
-        return;
+        setResult({ total: 0, success: 0, failed: 0, errors: ["파일에 데이터가 없거나 형식이 잘못되었습니다."] });
+        setIsUploading(false); return;
       }
 
       const errors: string[] = [];
       const validRecords: any[] = [];
       const currentCompanyId = profile?.company_id;
 
-      if (!currentCompanyId && effectiveRole !== 'SUPER_ADMIN') {
-        setIsUploading(false);
-        alert('소속 기업 정보를 확인할 수 없습니다.');
-        return;
-      }
-
-      for (const row of rows) {
+      for (const row of rows as any[]) {
         const rowNum = (row as any)._rowIndex;
-        const lookupKey = `${row.branchName}_${row.teamName}_${row.name}`;
-        const staffMapping = (staffMap as any)[lookupKey];
         
-        if (!row.date || !row.name || !row.amountStr) {
-          errors.push(`${rowNum}행: 필수 정보(날짜, 성명, 금액)가 누락되었습니다.`);
+        if (!row.date) { errors.push(`${rowNum}행: 날짜 형식이 올바르지 않습니다.`); continue; }
+        if (!row.branchName || !row.teamName || !row.name) { errors.push(`${rowNum}행: 지점, 팀, 사원명은 필수입니다.`); continue; }
+
+        if (!orgMap.branches.has(row.branchName)) {
+          errors.push(`${rowNum}행: 존재하지 않는 지점(${row.branchName})`);
           continue;
         }
 
-        if (!validateDate(row.date)) {
-          errors.push(`${rowNum}행: 날짜 형식이 올바르지 않습니다. (YYYY-MM-DD 필요)`);
+        const branchTeams = orgMap.teamsByBranch[row.branchName];
+        if (!branchTeams || !branchTeams.has(row.teamName)) {
+          errors.push(`${rowNum}행: ${row.branchName} 지점에 ${row.teamName} 팀이 존재하지 않음`);
           continue;
         }
 
+        const lookupKey = `${row.branchName}_${row.teamName}_${row.name}`;
+        const staffMapping = orgMap.staffByBranchTeam[lookupKey];
         if (!staffMapping) {
-          errors.push(`${rowNum}행: 등록되지 않은 사원 정보(${row.branchName} > ${row.teamName} > ${row.name})입니다.`);
+          errors.push(`${rowNum}행: ${row.teamName} 팀에 ${row.name} 사원이 존재하지 않음`);
           continue;
         }
 
-        // Strict validation: Amount must be a valid number
         const cleanAmount = parseInt(String(row.amountStr).replace(/[^0-9]/g, ''));
         if (isNaN(cleanAmount) || cleanAmount === 0) {
-          errors.push(`${rowNum}행: 매출액 형식이 잘못되었거나 0입니다.`);
+          errors.push(`${rowNum}행: 매출액 확인 필요`);
           continue;
         }
 
@@ -220,67 +208,31 @@ const DataUploadPage: React.FC = () => {
 
       let successCount = 0;
       if (validRecords.length > 0) {
-        // --- CHUNKED UPLOAD ---
         const CHUNK_SIZE = 500;
         for (let i = 0; i < validRecords.length; i += CHUNK_SIZE) {
           const chunk = validRecords.slice(i, i + CHUNK_SIZE);
-          const { error } = await supabase
-            .from('sales_records')
-            .upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-          if (error) {
-            errors.push(`일부 데이터 저장 중 오류 발생 (${i}~${i+chunk.length}행): ${error.message}`);
-          } else {
-            successCount += chunk.length;
-          }
+          const { error } = await supabase.from('sales_records').upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
+          if (error) errors.push(`저장 오류: ${error.message}`);
+          else successCount += chunk.length;
           setUploadProgress(Math.round(((i + chunk.length) / validRecords.length) * 100));
         }
       }
 
-      setResult({
-        total: rows.length,
-        success: successCount,
-        failed: rows.length - successCount,
-        errors
-      });
-      
-      if (successCount > 0) {
-        setFile(null);
-        alert(`${successCount}건의 실적 데이터를 성공적으로 업로드했습니다.`);
-      }
-    } catch (err) {
-      console.error('Upload Error:', err);
-      alert('파일 처리 중 예상치 못한 오류가 발생했습니다.');
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
-    }
+      setResult({ total: rows.length, success: successCount, failed: rows.length - successCount, errors });
+      if (successCount > 0) { setFile(null); alert(`${successCount}건 처리 완료`); }
+    } catch (err) { alert('업로드 중 오류 발생'); } finally { setIsUploading(false); setUploadProgress(0); }
   };
 
   const resetAllData = async () => {
     if (!profile?.company_id) return;
-    if (resetConfirmation !== '데이터 초기화 확인') {
-      alert('정확한 문구를 입력해 주세요.');
-      return;
-    }
-
-    if (!confirm('정말로 모든 실적 및 목표 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
-
+    if (resetConfirmation !== '데이터 초기화 확인') return alert('문구를 다시 확인해주세요.');
+    if (!confirm('초기화하시겠습니까?')) return;
     setIsResetting(true);
     try {
-      // Delete Performance
-      const { error: pError } = await supabase.from('sales_records').delete().eq('company_id', profile.company_id);
-      // Delete Targets
-      const { error: tError } = await supabase.from('sales_targets').delete().eq('company_id', profile.company_id);
-
-      if (pError || tError) throw new Error('삭제 중 오류가 발생했습니다.');
-      
-      alert('모든 데이터가 초기화되었습니다.');
-      setResetConfirmation('');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsResetting(false);
-    }
+      await supabase.from('sales_records').delete().eq('company_id', profile.company_id);
+      await supabase.from('sales_targets').delete().eq('company_id', profile.company_id);
+      alert('완료'); setResetConfirmation('');
+    } catch (err: any) { alert(err.message); } finally { setIsResetting(false); }
   };
 
   return (
@@ -289,150 +241,80 @@ const DataUploadPage: React.FC = () => {
         <div className={styles.titleArea}>
           <div className={styles.iconWrapper}><Database size={28} /></div>
           <div>
-            <h1 className={styles.title}>데이터 대량 업로드</h1>
-            <p className={styles.subtitle}>CSV 및 엑셀 파일을 이용하여 실적 데이터를 대량으로 등록할 수 있습니다.</p>
+            <h1 className={styles.title}>데이터 인텔리전트 업로드</h1>
+            <p className={styles.subtitle}>계층 구조(지점-팀-사원) 교차 검증을 지원합니다.</p>
           </div>
         </div>
       </header>
 
       <div className={styles.uploadCard}>
-        {/* Dropzone */}
         {!file ? (
-          <div 
-            className={styles.dropzone} 
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <div className={styles.dropzone} 
+               onDragOver={(e) => e.preventDefault()} 
+               onDrop={(e) => { e.preventDefault(); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]); }} 
+               onClick={() => fileInputRef.current?.click()}>
             <Upload size={48} className={styles.dropzoneIcon} />
             <div className={styles.dropzoneText}>
               <p>파일을 끌어다 놓거나 클릭하여 선택하세요.</p>
-              <span>Excel (.xlsx) 및 CSV 파일 형식을 지원합니다.</span>
+              <span>Excel(.xlsx) 및 CSV 지원</span>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
-              accept=".csv, .xlsx, .xls"
-              onChange={handleFileChange}
-            />
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".csv, .xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
         ) : (
           <div className={styles.fileInfo}>
-            <div className={styles.fileName}>
-              <FileText size={20} color="#3b82f6" />
-              {file.name}
-              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginLeft: 8 }}>
-                ({(file.size / 1024).toFixed(1)} KB)
-              </span>
-            </div>
-            <button className={styles.removeBtn} onClick={() => setFile(null)}>
-              <X size={20} />
-            </button>
+            <div className={styles.fileName}><FileText size={20} color="#3b82f6" /> {file.name}</div>
+            <button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button>
           </div>
         )}
 
-        {/* Instructions */}
         <div className={styles.instructions}>
           <h3 className={styles.instructionTitle}>업로드 가이드</h3>
-          <div className={styles.instructionList}>
-            <div className={styles.instructionItem}>
-              <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>1.</div>
-              <p>첫 번째 행은 항목명이며 두 번째 행부터 데이터가 인식됩니다.</p>
-            </div>
-            <div className={styles.instructionItem}>
-              <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>2.</div>
-              <p>순서: 날짜, 지점명, 팀명, 성명, 거래처명, 품목명, 매출액 (7개 열 필수)</p>
-            </div>
-            <div className={styles.instructionItem}>
-              <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>3.</div>
-              <p>지점/팀/성명은 조직 관리에서 등록된 정보와 정확히 일치해야 합니다 (ID 매칭용).</p>
-            </div>
-            <div className={styles.instructionItem}>
-              <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>4.</div>
-              <p>동일한 [날짜+거래처+품목] 데이터는 최신 업로드 건으로 갱신(중복 방지)됩니다.</p>
-            </div>
-          </div>
-          <button className={styles.downloadTemplate} onClick={downloadTemplate}>
-            <Download size={14} /> 샘플 템플릿 다운로드 (.csv)
+          <ul className={styles.instructionList}>
+            <li className={styles.instructionItem}><b>1. 공백 제거:</b> 모든 정보의 앞뒤 공백은 자동 제거됩니다.</li>
+            <li className={styles.instructionItem}><b>2. 교차 검증:</b> 지점-팀-사원 관계가 설정과 맞아야 업로드됩니다.</li>
+            <li className={styles.instructionItem}><b>3. 날짜 형식:</b> YYYY-MM-DD, YYYY.MM.DD 등 스마트 인식을 지원합니다.</li>
+            <li className={styles.instructionItem}><b>4. 순서:</b> 날짜, 지점, 팀, 성명, 거래처, 품목, 금액 (7개)</li>
+          </ul>
+          <button className={styles.downloadTemplate} onClick={downloadXlsxTemplate}>
+            <Download size={14} /> 시스템 맞춤 템플릿 다운로드 (.xlsx)
           </button>
         </div>
 
-        <button 
-          className={styles.uploadBtn} 
-          disabled={!file || isUploading}
-          onClick={startUpload}
-        >
+        <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : <CheckCircle2 size={20} />}
-          {isUploading ? `데이터 업로드 중... (${uploadProgress}%)` : '파일 업로드 시작하기'}
+          {isUploading ? `업로드 중... ${uploadProgress}%` : '데이터 분석 및 업로드'}
         </button>
 
         {isUploading && (
-          <div style={{ marginTop: 12, height: 4, width: '100%', backgroundColor: '#E2E8F0', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: '#f6ad55', transition: 'width 0.3s ease' }} />
+          <div style={{ marginTop: 12, height: 4, width: '100%', backgroundColor: '#E2E8F0', borderRadius: 2 }}>
+            <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: '#f6ad55' }} />
           </div>
         )}
 
-        {/* Upload Result */}
         {result && (
           <div style={{ marginTop: 24 }}>
             <div className={styles.statsArea}>
-              <div className={styles.statCard}>
-                <span className={styles.statLabel}>총 건수</span>
-                <span className={styles.statValue}>{result.total}</span>
-              </div>
-              <div className={`${styles.statCard} ${styles.success}`}>
-                <span className={styles.statLabel}>성공</span>
-                <span className={`${styles.statValue}`} style={{color: '#10B981'}}>{result.success}</span>
-              </div>
-              <div className={styles.statCard}>
-                <span className={styles.statLabel}>실패</span>
-                <span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span>
-              </div>
+              <div className={styles.statCard}><span className={styles.statLabel}>총 건수</span><span className={styles.statValue}>{result.total}</span></div>
+              <div className={`${styles.statCard} ${styles.success}`}><span className={styles.statLabel}>성공</span><span className={styles.statValue} style={{color: '#10B981'}}>{result.success}</span></div>
+              <div className={styles.statCard}><span className={styles.statLabel}>실패</span><span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span></div>
             </div>
-
             {result.errors.length > 0 && (
               <div className={styles.errorArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <AlertCircle size={18} color="#991B1B" />
-                  <h4 className={styles.errorTitle}>오류 및 제외 내역 ({result.errors.length}건)</h4>
-                </div>
-                <ul className={styles.errorList}>
-                  {result.errors.map((err, idx) => (
-                    <li key={idx}>{err}</li>
-                  ))}
-                </ul>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><AlertCircle size={18} color="#991B1B" /><h4>오류 내역</h4></div>
+                <ul className={styles.errorList}>{result.errors.slice(0, 30).map((err, idx) => <li key={idx}>{err}</li>)}</ul>
+                {result.errors.length > 30 && <p className={styles.moreErrors}>외 {result.errors.length - 30}건 더 있음...</p>}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Danger Zone: Data Reset */}
       <div className={styles.dangerZone}>
-        <div className={styles.dangerHeader}>
-          <AlertTriangle size={24} color="#EF4444" />
-          <h2 className={styles.dangerTitle}>데이터 초기화 (Caution)</h2>
-        </div>
-        <p className={styles.dangerDesc}>
-          해당 기업의 모든 실적 데이터와 목표 데이터를 영구적으로 삭제합니다. 관리자의 실수로 잘못된 데이터가 대량 업로드된 경우에만 사용하세요.
-        </p>
-        
+        <div className={styles.dangerHeader}><AlertTriangle size={24} color="#EF4444" /><h2 className={styles.dangerTitle}>위험 구역</h2></div>
         <div className={styles.resetControl}>
-          <input 
-            type="text" 
-            className={styles.resetInput}
-            placeholder='"데이터 초기화 확인" 입력'
-            value={resetConfirmation}
-            onChange={(e) => setResetConfirmation(e.target.value)}
-          />
-          <button 
-            className={styles.resetBtn}
-            disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting}
-            onClick={resetAllData}
-          >
-            {isResetting ? <Loader2 className={styles.animateSpin} size={18} /> : <Trash2 size={18} />}
-            전체 데이터 삭제하기
+          <input type="text" className={styles.resetInput} placeholder='"데이터 초기화 확인" 입력 시에만 활성화' value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} />
+          <button className={styles.resetBtn} disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting} onClick={resetAllData}>
+            {isResetting ? <Loader2 className={styles.animateSpin} size={18} /> : <Trash2 size={18} />} 초기화
           </button>
         </div>
       </div>

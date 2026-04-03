@@ -374,3 +374,11 @@
   background: #CBD5E1;
   cursor: not-allowed;
 }
+
+.moreErrors {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 8px;
+  font-style: italic;
+  text-align: right;
+}
