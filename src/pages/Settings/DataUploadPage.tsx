@@ -33,7 +33,7 @@ const DataUploadPage: React.FC = () => {
     if (!cid) return;
     try {
       // Helper to fetch all records (bypass 1000 limit)
-      const fetchAll = async (table: string, query: any) => {
+      const fetchAll = async (query: any) => {
           let all: any[] = [];
           let from = 0;
           const step = 1000;
@@ -48,10 +48,10 @@ const DataUploadPage: React.FC = () => {
           return all;
       };
 
-      const divisions = await fetchAll('sales_divisions', supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
-      const teams = await fetchAll('sales_teams', supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
-      const staff = await fetchAll('sales_staff', supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map((t:any) => t.id) || []));
-      const cats = await fetchAll('product_categories', supabase.from('product_categories').select('id, name').eq('company_id', cid));
+      const divisions = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
+      const teams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
+      const staff = await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map((t:any) => t.id) || []));
+      const cats = await fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid));
       
       const dMap: any = {}; divisions?.forEach((d: any) => dMap[d.name.trim()] = d.id);
       const tMap: any = {}; teams?.forEach((t: any) => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
