@@ -28,26 +28,25 @@ const DataUploadPage: React.FC = () => {
 
   useEffect(() => { fetchOrgInfo(); }, [profile?.company_id]);
 
+  const fetchAll = async (query: any) => {
+      let all: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all = [...all, ...data];
+          if (data.length < step) break;
+          from += step;
+      }
+      return all;
+  };
+
   const fetchOrgInfo = async () => {
     const cid = profile?.company_id;
     if (!cid) return;
     try {
-      // Helper to fetch all records (bypass 1000 limit)
-      const fetchAll = async (query: any) => {
-          let all: any[] = [];
-          let from = 0;
-          const step = 1000;
-          while (true) {
-              const { data, error } = await query.range(from, from + step - 1);
-              if (error) throw error;
-              if (!data || data.length === 0) break;
-              all = [...all, ...data];
-              if (data.length < step) break;
-              from += step;
-          }
-          return all;
-      };
-
       const divisions = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
       const teams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
       const staff = await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams?.map((t:any) => t.id) || []));
@@ -133,83 +132,84 @@ const DataUploadPage: React.FC = () => {
 
       const local = { ...orgMap };
 
-      // Phase 1b: Resilient Batch Provisioning (v2.7)
-      const EN_CHUNK = 100; // Entity Insert Chunk
+      // Phase 1b: Enterprise Provisioning (v3.0 Idempotent Fetch-Diff-Insert)
+      // Since Org tables lack unique constraints on (name, cid), we must Fetch -> Diff -> Insert
+      setProgress(15);
       
-      // 1. Divisions
-      const uniqueDivs = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d]);
-      if (uniqueDivs.length > 0) {
-          for (let i = 0; i < uniqueDivs.length; i += EN_CHUNK) {
-              const chunk = uniqueDivs.slice(i, i + EN_CHUNK);
-              const { data, error } = await supabase.from('sales_divisions').upsert(chunk.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
-              if (error) console.error('Division Upsert Error:', error);
-              data?.forEach(d => local.divisions[d.name] = d.id);
-          }
+      // 1. Synchronize Divisions
+      const existingDivs = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
+      existingDivs.forEach(d => local.divisions[d.name] = d.id);
+      
+      const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d]);
+      if (missingDivNames.length > 0) {
+          const { data: insertedDivs, error: divErr } = await supabase.from('sales_divisions').insert(missingDivNames.map(name => ({ company_id: cid, name }))).select();
+          if (divErr) console.error('Division Insert Error:', divErr);
+          insertedDivs?.forEach(d => local.divisions[d.name] = d.id);
       }
-      setProgress(20);
+      setProgress(25);
 
-      // 2. Teams
-      const uniqueTeams = Array.from(new Set(rows.map(r => `${r.div}|${r.team}`))).filter(key => {
+      // 2. Synchronize Teams
+      const existingTeams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
+      existingTeams.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+      
+      const missingTeamKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}`))).filter(key => {
           const [dName, tName] = key.split('|');
           const dId = local.divisions[dName];
           return dId && tName && !local.teamMap[`${dId}_${tName}`];
       });
-      if (uniqueTeams.length > 0) {
-          for (let i = 0; i < uniqueTeams.length; i += EN_CHUNK) {
-              const chunk = uniqueTeams.slice(i, i + EN_CHUNK);
-              const teamInserts = chunk.map(key => {
-                  const [dName, tName] = key.split('|');
-                  const divId = local.divisions[dName];
-                  return divId ? { company_id: cid, division_id: divId, name: tName } : null;
-              }).filter(Boolean);
-              
-              if (teamInserts.length > 0) {
-                  const { data, error } = await supabase.from('sales_teams').upsert(teamInserts as any, { onConflict: 'company_id, division_id, name' }).select();
-                  if (error) console.error('Team Upsert Error:', error);
-                  data?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
-              }
+      if (missingTeamKeys.length > 0) {
+          const teamInserts = missingTeamKeys.map(key => {
+              const [dName, tName] = key.split('|');
+              return { company_id: cid, division_id: local.divisions[dName], name: tName };
+          });
+          const { data: insertedTeams, error: teamErr } = await supabase.from('sales_teams').insert(teamInserts).select();
+          if (teamErr) console.error('Team Insert Error:', teamErr);
+          insertedTeams?.forEach(t => local.teamMap[`${t.division_id}_${t.name}`] = t.id);
+      }
+      setProgress(40);
+
+      // 3. Synchronize Staff
+      // Fetch all staff for found teams to populate map
+      const tIds = Object.values(local.teamMap);
+      if (tIds.length > 0) {
+          // Chunk staff fetching because .in() has limits
+          const S_CHUNK = 100;
+          for (let i = 0; i < tIds.length; i += S_CHUNK) {
+              const chunkTids = tIds.slice(i, i + S_CHUNK);
+              const staff = await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', chunkTids));
+              staff.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
           }
       }
-      setProgress(35);
-
-      // 3. Staff
-      const uniqueStaff = Array.from(new Set(rows.map(r => `${r.div}|${r.team}|${r.name}`))).filter(key => {
+      
+      const missingStaffKeys = Array.from(new Set(rows.map(r => `${r.div}|${r.team}|${r.name}`))).filter(key => {
           const [dName, tName, sName] = key.split('|');
           const dId = local.divisions[dName];
           const tId = dId ? local.teamMap[`${dId}_${tName}`] : null;
           return tId && sName && !local.staffMap[`${tId}_${sName}`];
       });
-      if (uniqueStaff.length > 0) {
-          for (let i = 0; i < uniqueStaff.length; i += EN_CHUNK) {
-              const chunk = uniqueStaff.slice(i, i + EN_CHUNK);
-              const staffInserts = chunk.map(key => {
-                  const [dName, tName, sName] = key.split('|');
-                  const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
-                  return tId ? { team_id: tId, name: sName } : null;
-              }).filter(Boolean);
-              
-              if (staffInserts.length > 0) {
-                  const { data, error } = await supabase.from('sales_staff').upsert(staffInserts as any, { onConflict: 'team_id, name' }).select();
-                  if (error) console.error('Staff Upsert Error:', error);
-                  data?.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
-              }
-          }
+      if (missingStaffKeys.length > 0) {
+          const staffInserts = missingStaffKeys.map(key => {
+              const [dName, tName, sName] = key.split('|');
+              const tId = local.teamMap[`${local.divisions[dName]}_${tName}`];
+              return { team_id: tId, name: sName };
+          });
+          const { data: insertedStaff, error: sErr } = await supabase.from('sales_staff').insert(staffInserts).select();
+          if (sErr) console.error('Staff Insert Error:', sErr);
+          insertedStaff?.forEach(s => local.staffMap[`${s.team_id}_${s.name}`] = s.id);
       }
-      setProgress(50);
+      setProgress(55);
 
-      // 4. Categories
-      const uniqueCats = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c]);
-      if (uniqueCats.length > 0) {
-          for (let i = 0; i < uniqueCats.length; i += EN_CHUNK) {
-              const chunk = uniqueCats.slice(i, i + EN_CHUNK);
-              const { data, error } = await supabase.from('product_categories').upsert(chunk.map(name => ({ company_id: cid, name })), { onConflict: 'company_id, name' }).select();
-              if (error) console.error('Category Upsert Error:', error);
-              data?.forEach(c => local.catMap[c.name] = c.id);
-          }
+      // 4. Synchronize Categories
+      const existingCats = await fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid));
+      existingCats.forEach(c => local.catMap[c.name] = c.id);
+
+      const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c]);
+      if (missingCatNames.length > 0) {
+          const { data: insertedCats, error: cErr } = await supabase.from('product_categories').insert(missingCatNames.map(name => ({ company_id: cid, name }))).select();
+          if (cErr) console.error('Category Insert Error:', cErr);
+          insertedCats?.forEach(c => local.catMap[c.name] = c.id);
       }
       
-      // Final Sync before record creation: Re-fetch current state to ensure all IDs are in map
-      await fetchOrgInfo();
       setProgress(65);
 
       // Phase 2: Record Preparation & Aggregation (v2.8 Client-side Summer)
@@ -293,7 +293,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.9)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.0)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -303,11 +303,11 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v2.9 (Unlimited Scalability)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.0 (Enterprise)</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>무한 확장 아키텍처:</b> 소프트웨어적인 한도를 모두 제거하여 수백만 건 이상의 초대용량 데이터도 안전하게 처리합니다.</li>
-            <li className={styles.instructionItem}><b>수평적 데이터 합산:</b> 데이터 양에 관계없이 동일 키값의 매출 실적을 정확히 집계하여 하나로 관리합니다.</li>
-            <li className={styles.instructionItem}><b>적응형 스트리밍:</b> 데이터 부하에 맞춰 스스로 전송 속도를 조절하여 데이터베이스 안정성을 극대화합니다.</li>
+            <li className={styles.instructionItem}><b>엔터프라이즈 매칭:</b> 조직 정보(지점-팀-사원)의 중복을 완벽히 필터링하고 정확하게 매칭합니다.</li>
+            <li className={styles.instructionItem}><b>수평적 데이터 합산:</b> 데이터 양에 관계없이 동일한 실적은 자동으로 합산(SUM)하여 관리합니다.</li>
+            <li className={styles.instructionItem}><b>대규모 안정성 보장:</b> 수십만 건의 행도 끊김 없이 클라우드와 고속으로 동기화합니다.</li>
           </ul>
         </div>
         <div className={styles.progressArea}>
