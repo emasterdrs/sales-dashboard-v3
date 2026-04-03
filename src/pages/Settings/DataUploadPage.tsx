@@ -331,7 +331,7 @@ const DataUploadPage: React.FC = () => {
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.2)</h1></div></header>
+      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.2.5)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
           <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
@@ -341,7 +341,7 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
         )}
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.2 (Resilient)</h3>
+          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.2.5 (Resilient)</h3>
           <ul className={styles.instructionList}>
             <li className={styles.instructionItem}><b>슈퍼 리질리언트 매칭:</b> 미세한 공백이나 오타 등 데이터 불정합성을 완벽히 필터링하여 정확하게 조직을 매칭합니다.</li>
             <li className={styles.instructionItem}><b>동기식 상태 관리:</b> 비동기 데이터베이스 통신 지연을 극복하여 실시간으로 인적 자원 정보를 동기화합니다.</li>
