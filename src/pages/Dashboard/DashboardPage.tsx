@@ -127,13 +127,15 @@ const DashboardPage: React.FC = () => {
       const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
       const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
       
-      const records = await fetchAll(supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
-      
-      let filteredRecords = records || [];
+      let totalPerf = 0;
       if (isTypeMode) {
         const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id);
         const validCatIds = cats?.filter(c => c.name && c.name !== '미분류').map(c => c.id) || [];
-        filteredRecords = filteredRecords.filter(r => r.category_id && validCatIds.includes(r.category_id));
+        const { data: catPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'category_id' });
+        totalPerf = (catPerf || []).filter((p: any) => validCatIds.includes(p.id)).reduce((acc: number, p: any) => acc + parseNum(p.total), 0);
+      } else {
+        const { data: sumData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'total' });
+        totalPerf = parseNum(sumData?.[0]?.total || 0);
       }
 
       const targets = await fetchAll(supabase.from('sales_targets')
@@ -143,8 +145,7 @@ const DashboardPage: React.FC = () => {
         .eq('year', year)
         .eq('month', month));
 
-      const totalPerf = filteredRecords.reduce((acc, r) => acc + parseNum(r.amount), 0);
-      const totalGoal = (targets || []).reduce((acc, t) => acc + parseNum(t.target_amount), 0);
+      const totalGoal = (targets || []).reduce((acc: any, t: any) => acc + parseNum(t.target_amount), 0);
       
       const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
       const expectedAtNow = totalGoal * progressLimit;
@@ -161,20 +162,26 @@ const DashboardPage: React.FC = () => {
 
       const yearStart = `${year}-01-01`;
       const yearEnd = `${year}-12-31`;
-      const yearPerf = await fetchAll(supabase.from('sales_records').select('amount, sales_date, category_id').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd));
+      const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
       
-      let trendRecs = yearPerf || [];
       if (isTypeMode) {
          const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id);
          const validCatIds = cats?.filter(c => c.name && c.name !== '미분류').map(c => c.id) || [];
-         trendRecs = trendRecs.filter(r => r.category_id && validCatIds.includes(r.category_id));
+         if (validCatIds.length > 0) {
+             const yearPerf = await fetchAll(supabase.from('sales_records').select('amount, sales_date').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd).in('category_id', validCatIds));
+             yearPerf.forEach(p => {
+               const m = new Date(p.sales_date).getMonth();
+               monthMap[m].performance += parseNum(p.amount);
+             });
+         }
+      } else {
+         const { data: yTrend } = await supabase.rpc('get_yearly_trend', { p_company_id: profile.company_id, p_year: year });
+         (yTrend || []).forEach((t: any) => {
+             if (t.month >= 1 && t.month <= 12) {
+                 monthMap[t.month - 1].performance = parseNum(t.total);
+             }
+         });
       }
-
-      const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
-      trendRecs.forEach(p => {
-        const m = new Date(p.sales_date).getMonth();
-        monthMap[m].performance += parseNum(p.amount);
-      });
 
       setTrendData(monthMap.map(m => ({ ...m, performance: Number(formatValue(m.performance)) })));
     } catch (err) {
@@ -199,13 +206,13 @@ const DashboardPage: React.FC = () => {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (divisions || []).map(d => d.id);
           const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
-          const perf = await fetchAll(supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
-          const { data: teamList } = await supabase.from('sales_teams').select('id, division_id').eq('company_id', profile.company_id);
+          
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'division_id' });
+          const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
 
           data = (divisions || []).map(d => {
-            const target = parseNum((targets || []).find(tg => tg.entity_id === d.id)?.target_amount || 0);
-            const divTeamIds = (teamList || []).filter(t => t.division_id === d.id).map(t => t.id);
-            const divisionPerf = (perf || []).filter(p => divTeamIds.includes(p.team_id || '')).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const target = parseNum((targets || []).find((tg: any) => tg.entity_id === d.id)?.target_amount || 0);
+            const divisionPerf = Number(perfMap.get(d.id) || 0);
             
             const achieve = target > 0 ? (divisionPerf / target) * 100 : 0;
             const expectedAtNow = target * progressLimit;
@@ -229,11 +236,13 @@ const DashboardPage: React.FC = () => {
           const { data: teams } = await supabase.from('sales_teams').select('*').eq('division_id', selectedIds.divisionId).order('display_order', { ascending: true });
           const ids = (teams || []).map(t => t.id);
           const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'TEAM').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
-          const perf = await fetchAll(supabase.from('sales_records').select('amount, team_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
+          
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'team_id' });
+          const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
 
           data = (teams || []).map(t => {
-            const teamTarget = parseNum((targets || []).find(tg => tg.entity_id === t.id)?.target_amount || 0);
-            const teamPerf = (perf || []).filter(p => p.team_id === t.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const teamTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === t.id)?.target_amount || 0);
+            const teamPerf = Number(perfMap.get(t.id) || 0);
             const achieve = teamTarget > 0 ? (teamPerf / teamTarget) * 100 : 0;
             const expectedAtNow = teamTarget * progressLimit;
             const gap = teamPerf - expectedAtNow;
@@ -250,11 +259,13 @@ const DashboardPage: React.FC = () => {
           const { data: staff } = await supabase.from('sales_staff').select('*').eq('team_id', selectedIds.teamId).order('display_order', { ascending: true });
           const ids = (staff || []).map(s => s.id);
           const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'STAFF').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
-          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
+          
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'staff_id', p_filter_col: 'team_id', p_filter_val: selectedIds.teamId });
+          const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
 
           data = (staff || []).map(s => {
-            const staffTarget = parseNum((targets || []).find(tg => tg.entity_id === s.id)?.target_amount || 0);
-            const staffPerf = (perf || []).filter(p => p.staff_id === s.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const staffTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === s.id)?.target_amount || 0);
+            const staffPerf = Number(perfMap.get(s.id) || 0);
             const achieve = staffTarget > 0 ? (staffPerf / staffTarget) * 100 : 0;
             const expectedAtNow = staffTarget * progressLimit;
             const gap = staffPerf - expectedAtNow;
@@ -268,16 +279,12 @@ const DashboardPage: React.FC = () => {
           });
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
-          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).gte('sales_date', startDate).lte('sales_date', endDate));
-          const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
-          data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId });
+          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
-          const perf = await fetchAll(supabase.from('sales_records').select('*').eq('staff_id', selectedIds.staffId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate));
-          const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + parseNum(p.amount)));
-          data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'item_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'customer_name', p_filter_val2: selectedIds.customerName });
+          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
         }
       } else {
         // --- TYPE BASED MODE ---
@@ -285,11 +292,13 @@ const DashboardPage: React.FC = () => {
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const ids = (cats || []).map(c => c.id);
           const targets = ids.length > 0 ? await fetchAll(supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month).in('entity_id', ids)) : [];
-          const perf = await fetchAll(supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate));
+          
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'category_id' });
+          const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
 
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
-            const target = parseNum((targets || []).find(tg => tg.entity_id === c.id)?.target_amount || 0);
-            const catPerf = (perf || []).filter(p => p.category_id === c.id).reduce((acc, p) => acc + parseNum(p.amount), 0);
+            const target = parseNum((targets || []).find((tg: any) => tg.entity_id === c.id)?.target_amount || 0);
+            const catPerf = Number(perfMap.get(c.id) || 0);
             
             const achieve = target > 0 ? (catPerf / target) * 100 : 0;
             const expectedAtNow = target * progressLimit;
@@ -304,17 +313,15 @@ const DashboardPage: React.FC = () => {
           });
         }
         else if (currentLevel === 1 && selectedIds.categoryId) {
-          const perf = await fetchAll(supabase.from('sales_records').select('amount, staff_id').eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate));
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'staff_id', p_filter_col: 'category_id', p_filter_val: selectedIds.categoryId });
           const { data: staffList } = await supabase.from('sales_staff').select('id, name').order('display_order', { ascending: true });
-          const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.staff_id, (map.get(p.staff_id) || 0) + parseNum(p.amount)));
-          data = (staffList || []).filter(s => map.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(map.get(s.id) || 0), achieve: '100', gap: '-' }));
+          
+          const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
+          data = (staffList || []).filter(s => perfMap.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(Number(perfMap.get(s.id) || 0)), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 2 && selectedIds.staffId && selectedIds.categoryId) {
-          const perf = await fetchAll(supabase.from('sales_records').select('amount, customer_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate));
-          const map = new Map<string, number>();
-          (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + parseNum(p.amount)));
-          data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
+          const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'category_id', p_filter_val2: selectedIds.categoryId });
+          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 3 && selectedIds.staffId && selectedIds.categoryId && selectedIds.customerName) {
             const { data: perf } = await supabase.from('sales_records').select('amount, item_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
