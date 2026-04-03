@@ -200,7 +200,7 @@ const DataUploadPage: React.FC = () => {
       <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v2.4)</h1></div></header>
       <div className={styles.uploadCard}>
         {!file ? (
-          <div className={styles.dropzone} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
+          <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
             <Upload size={48} /><div className={styles.dropzoneText}><p>파일 업로드</p><span>지능형 헤더 매핑 및 200건 Chunk 처리</span></div><input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
         ) : (
