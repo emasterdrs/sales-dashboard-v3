@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area
@@ -77,8 +78,8 @@ const DashboardPage: React.FC = () => {
       if (wd) setWorkingDays({ total: wd.total_days, current: Math.min(wd.total_days, 15) }); // Default to 15 for demo
 
       // 2. Summary (Current Month)
-      const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-      const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
+      const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
+      const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
       
       const { data: records } = await supabase.from('sales_records').select('amount').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
       const { data: targets } = await supabase.from('sales_targets').select('target_amount').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month);

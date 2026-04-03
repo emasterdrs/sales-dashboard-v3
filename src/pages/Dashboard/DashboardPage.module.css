@@ -1,22 +1,9 @@
 .page {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   max-width: 1400px;
   margin: 0 auto;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Responsive adjustments */
-@media (max-width: 1200px) {
-  .page {
-    padding: 0 10px;
-  }
-}
-
-/* Custom styles for the main dashboard dashboard container if any */
 .dashboardContent {
   display: flex;
   flex-direction: column;
@@ -25,32 +12,44 @@
 
 /* Chart Styles */
 .chartCard {
-  background: white;
-  border-radius: 32px;
-  border: 1px solid #E2E8F0;
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
   padding: 32px;
   margin-bottom: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+  box-shadow: var(--shadow-md);
   width: 100%;
+  transition: var(--transition);
+}
+
+.chartCard:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }
 
 .chartHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--bg-app);
+  padding-bottom: 20px;
 }
 
 .chartTitle {
   font-size: 20px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: var(--secondary);
+  letter-spacing: -0.5px;
 }
 
 .chartUnit {
   font-size: 13px;
-  color: #94A3B8;
+  color: var(--text-muted);
   font-weight: 600;
+  background: var(--bg-app);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
 }
 
 .chartWrapper {
@@ -61,6 +60,11 @@
 @media (max-width: 1024px) {
   .chartCard {
     padding: 24px;
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
+  }
+
+  .chartHeader {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
   }
 }

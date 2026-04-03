@@ -32,11 +32,7 @@ const InquiryPage: React.FC = () => {
 
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
-  useEffect(() => {
-    fetchInquiries();
-  }, [profile?.id, isSuperAdmin]);
-
-  const fetchInquiries = async () => {
+  const fetchInquiries = React.useCallback(async () => {
     if (!profile?.id) return;
     setIsLoading(true);
     try {
@@ -57,7 +53,12 @@ const InquiryPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [profile?.id, isSuperAdmin]);
+
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
 
   const handleCreate = async () => {
     if (!subject || !content || !profile?.company_id) return;

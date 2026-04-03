@@ -129,66 +129,106 @@ const DataUploadPage: React.FC = () => {
         setIsUploading(false); return;
       }
 
+      setUploadProgress(10);
+      let currentOrg = { ...orgMap };
       const errors: string[] = [];
-      const validRecords: any[] = [];
-      const currentOrg = { ...orgMap };
 
-      // Ensure '미분류' (Uncategorized) exists
+      // 1. Extract Unique Entities for Bulk Provisioning
+      const uniqueDivs = [...new Set(rows.map(r => r.divisionName).filter(Boolean))];
+      const uniqueTeams = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}`).filter(key => key.split('||')[1]))];
+      const uniqueStaff = [...new Set(rows.map(r => `${r.divisionName}||${r.teamName}||${r.name}`).filter(key => key.split('||')[2]))];
+
+      // 2. Bulk Create Divisions
+      const newDivNames = uniqueDivs.filter(name => !currentOrg.divisions[name]);
+      if (newDivNames.length > 0) {
+        const { data: createdDivs, error: divErr } = await supabase.from('sales_divisions').insert(
+          newDivNames.map((name, i) => ({ 
+            company_id: profile.company_id, 
+            name, 
+            display_order: Object.keys(currentOrg.divisions).length + i 
+          }))
+        ).select();
+        if (divErr) throw new Error(`Division creation failed: ${divErr.message}`);
+        createdDivs?.forEach(d => currentOrg.divisions[d.name] = d.id);
+      }
+      setUploadProgress(30);
+
+      // 3. Bulk Create Teams
+      const newTeamsToCreate = uniqueTeams.filter(key => {
+        const [divName, teamName] = key.split('||');
+        const divId = currentOrg.divisions[divName];
+        return divId && !currentOrg.teams[`${divId}_${teamName}`];
+      });
+
+      if (newTeamsToCreate.length > 0) {
+        const { data: createdTeams, error: teamErr } = await supabase.from('sales_teams').insert(
+          newTeamsToCreate.map((key, i) => {
+            const [divName, teamName] = key.split('||');
+            return { 
+              company_id: profile.company_id, 
+              division_id: currentOrg.divisions[divName], 
+              name: teamName, 
+              display_order: Object.keys(currentOrg.teams).length + i 
+            };
+          })
+        ).select();
+        if (teamErr) throw new Error(`Team creation failed: ${teamErr.message}`);
+        createdTeams?.forEach(t => currentOrg.teams[`${t.division_id}_${t.name}`] = t.id);
+      }
+      setUploadProgress(50);
+
+      // 4. Bulk Create Staff
+      const newStaffToCreate = uniqueStaff.filter(key => {
+        const [divName, teamName, staffName] = key.split('||');
+        const divId = currentOrg.divisions[divName];
+        const teamId = currentOrg.teams[`${divId}_${teamName}`];
+        return teamId && !currentOrg.staff[`${teamId}_${staffName}`];
+      });
+
+      if (newStaffToCreate.length > 0) {
+        const { data: createdStaff, error: staffErr } = await supabase.from('sales_staff').insert(
+          newStaffToCreate.map((key, i) => {
+            const [divName, teamName, staffName] = key.split('||');
+            const divId = currentOrg.divisions[divName];
+            const teamId = currentOrg.teams[`${divId}_${teamName}`];
+            return { 
+              team_id: teamId, 
+              name: staffName, 
+              display_order: Object.keys(currentOrg.staff).length + i 
+            };
+          })
+        ).select();
+        if (staffErr) throw new Error(`Staff creation failed: ${staffErr.message}`);
+        createdStaff?.forEach(s => currentOrg.staff[`${s.team_id}_${s.name}`] = s.id);
+      }
+      setUploadProgress(70);
+
+      // 5. Ensure '미분류' exists
       if (!currentOrg.categories['미분류']) {
         const { data: newCat } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: '미분류', display_order: 999 }).select().single();
         if (newCat) currentOrg.categories['미분류'] = newCat.id;
       }
 
-      for (let i = 0; i < rows.length; i++) {
-        const row: any = rows[i];
-        const rowNum = row._rowIndex;
-        setUploadProgress(Math.round((i / rows.length) * 50)); // First 50% for analysis & provisioning
+      // 6. Final Data Preparation and Upsert
+      const validRecords: any[] = [];
+      for (const row of rows) {
+        const divId = currentOrg.divisions[row.divisionName];
+        const teamId = divId ? currentOrg.teams[`${divId}_${row.teamName}`] : null;
+        const staffId = teamId ? currentOrg.staff[`${teamId}_${row.name}`] : null;
 
-        if (!row.date || !row.divisionName || !row.teamName || !row.name) {
-          errors.push(`${rowNum}행: 필수 정보 누락(날짜, 사업부, 팀, 성명)`);
-          continue;
-        }
-
-        // 1. Division Provisioning
-        let divisionId = currentOrg.divisions[row.divisionName];
-        if (!divisionId) {
-          const { data: newDiv } = await supabase.from('sales_divisions').insert({ company_id: profile.company_id, name: row.divisionName, display_order: Object.keys(currentOrg.divisions).length }).select().single();
-          if (newDiv) {
-            divisionId = newDiv.id;
-            currentOrg.divisions[row.divisionName] = divisionId;
-          } else { errors.push(`${rowNum}행: 사업부 생성 실패`); continue; }
-        }
-
-        // 2. Team Provisioning
-        const teamKey = `${divisionId}_${row.teamName}`;
-        let teamId = currentOrg.teams[teamKey];
-        if (!teamId) {
-          const { data: newTeam } = await supabase.from('sales_teams').insert({ company_id: profile.company_id, division_id: divisionId, name: row.teamName, display_order: Object.keys(currentOrg.teams).length }).select().single();
-          if (newTeam) {
-            teamId = newTeam.id;
-            currentOrg.teams[teamKey] = teamId;
-          } else { errors.push(`${rowNum}행: 팀 생성 실패`); continue; }
-        }
-
-        // 3. Staff Provisioning
-        const staffKey = `${teamId}_${row.name}`;
-        let staffId = currentOrg.staff[staffKey];
-        if (!staffId) {
-          const { data: newStaff } = await supabase.from('sales_staff').insert({ team_id: teamId, name: row.name, display_order: Object.keys(currentOrg.staff).length }).select().single();
-          if (newStaff) {
-            staffId = newStaff.id;
-            currentOrg.staff[staffKey] = staffId;
-          } else { errors.push(`${rowNum}행: 사원 생성 실패`); continue; }
+        if (!divId || !teamId || !staffId || !row.date) {
+            errors.push(`${row._rowIndex}행: 필수 정보 누락 또는 조직 생성 실패`);
+            continue;
         }
 
         const cleanAmount = parseInt(String(row.amountStr).replace(/[^0-9]/g, ''));
-        if (isNaN(cleanAmount)) { errors.push(`${rowNum}행: 매출액 오류`); continue; }
+        if (isNaN(cleanAmount)) { errors.push(`${row._rowIndex}행: 매출액 오류`); continue; }
 
         validRecords.push({
           company_id: profile.company_id,
           staff_id: staffId,
           team_id: teamId,
-          category_id: currentOrg.categories['미분류'], // Default to '미분류' as requested
+          category_id: currentOrg.categories['미분류'],
           customer_name: row.customer || '미지정',
           item_name: row.item || '미지정',
           amount: cleanAmount,
@@ -196,19 +236,28 @@ const DataUploadPage: React.FC = () => {
         });
       }
 
-      setOrgMap(currentOrg); // Update local map with new entities
+      setOrgMap(currentOrg);
 
       let successCount = 0;
       if (validRecords.length > 0) {
+        // Chunk upserts if data is very large (optional, but good for stability)
         const { error } = await supabase.from('sales_records').upsert(validRecords, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
-        if (error) errors.push(`저장 오류: ${error.message}`);
+        if (error) errors.push(`최종 데이터 저장 오류: ${error.message}`);
         else successCount = validRecords.length;
       }
 
       setResult({ total: rows.length, success: successCount, failed: rows.length - successCount, errors });
       setUploadProgress(100);
-      if (successCount > 0) { setFile(null); alert('업로드 및 조직 자동 생성이 완료되었습니다.'); }
-    } catch (err) { alert('처리 중 오류 발생'); } finally { setIsUploading(false); }
+      if (successCount > 0) { 
+        setFile(null); 
+        alert(`업로드가 완료되었습니다. (성공: ${successCount}건)`); 
+      }
+    } catch (err: any) { 
+        alert(`처리 중 치명적 오류 발생: ${err.message}`); 
+        console.error(err);
+    } finally { 
+        setIsUploading(false); 
+    }
   };
 
   const resetAllData = async () => {
