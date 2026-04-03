@@ -1,43 +1,22 @@
 .container {
   background: white;
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-xl);
-  padding: 48px;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 40px;
   border: 1px solid var(--border-subtle);
-  margin-top: 32px;
   width: 100%;
-  overflow: hidden;
-  transition: var(--transition-spring);
-}
-
-.container:hover {
-  box-shadow: var(--shadow-floating);
 }
 
 .tableHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 48px;
-}
-
-.headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.verticalBar {
-  width: 8px;
-  height: 32px;
-  background: var(--primary);
-  border-radius: var(--radius-full);
-  box-shadow: 0 0 15px var(--primary-glow);
+  margin-bottom: 40px;
 }
 
 .tableTitle {
   font-size: 24px;
-  font-weight: 900;
+  font-weight: 800;
   color: var(--secondary);
   letter-spacing: -1px;
 }
@@ -45,10 +24,10 @@
 .breadcrumbWrapper {
   display: flex;
   align-items: center;
+  gap: 12px;
   background: var(--bg-app);
-  padding: 10px 24px;
+  padding: 8px 20px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--border-subtle);
 }
 
 .breadcrumbHome {
@@ -62,19 +41,17 @@
 }
 
 .breadcrumbHome:hover {
-  transform: scale(1.2);
+  transform: scale(1.1);
 }
 
 .breadcrumbItem {
   border: none;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   transition: var(--transition);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .breadcrumbItem:hover {
@@ -82,9 +59,8 @@
 }
 
 .separator {
-  color: var(--border-color);
-  margin: 0 12px;
-  font-weight: 900;
+  color: var(--text-dim);
+  font-weight: 400;
 }
 
 .mainTable {
@@ -94,13 +70,13 @@
 
 .mainTable th {
   text-align: right;
-  padding: 24px 32px;
-  font-size: 12px;
-  font-weight: 900;
+  padding: 16px 24px;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  border-bottom: 1px solid var(--bg-app);
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .mainTable th:first-child {
@@ -109,19 +85,18 @@
 
 .row {
   cursor: pointer;
-  transition: var(--transition-spring);
-  border-bottom: 1px solid var(--bg-app);
+  transition: var(--transition);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .row:hover {
   background: var(--bg-app);
-  transform: scale(1.002);
 }
 
 .cell {
-  padding: 32px;
-  font-size: 16px;
-  font-weight: 800;
+  padding: 24px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--secondary);
   text-align: right;
 }
@@ -131,37 +106,40 @@
   color: var(--text-muted);
 }
 
-/* Specific Cell colors */
-.goal { color: var(--text-dim); font-weight: 700; }
-.performance { color: var(--secondary); }
-.achievement { color: var(--primary); font-weight: 900; }
-.gap { color: var(--danger); }
+.achievement {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.gap {
+  color: var(--danger);
+}
 
 /* Expected Closing row styling */
 .expectedRow {
-  background: #FEFCE8;
-  border-radius: var(--radius-lg);
+  background: #fffbeb;
+  border-bottom: none;
 }
 
 .expectedLabel {
-  padding: 24px 32px;
+  padding: 20px 24px;
   font-size: 14px;
-  font-weight: 800;
-  color: #CA8A04;
+  font-weight: 700;
+  color: #92400e;
 }
 
 .expectedValue, .expectedPercent, .expectedGap {
-  padding: 24px 32px;
+  padding: 20px 24px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: right;
 }
 
-.expectedPercent { color: #16A34A; }
-.expectedGap { color: #DC2626; }
+.expectedPercent { color: #059669; }
+.expectedGap { color: #dc2626; }
 
 @media (max-width: 1024px) {
-  .tableHeader { flex-direction: column; align-items: flex-start; gap: 24px; }
+  .tableHeader { flex-direction: column; align-items: flex-start; gap: 20px; }
   .breadcrumbWrapper { margin-left: 0; width: 100%; overflow-x: auto; }
   .mainTable { min-width: 900px; }
 }

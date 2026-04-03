@@ -1,8 +1,7 @@
-.container {
-  padding: var(--content-padding);
-  max-width: 1400px;
+.pageContainer {
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1200px;
   margin: 0 auto;
-  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .header {
@@ -11,20 +10,21 @@
 
 .titleArea {
   display: flex;
-  gap: 24px;
   align-items: center;
+  gap: 24px;
 }
 
 .iconWrapper {
-  width: 72px;
-  height: 72px;
-  background: var(--secondary);
+  width: 64px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
@@ -42,44 +42,29 @@
 }
 
 .uploadCard {
-  background: var(--bg-card);
+  background: white;
   border-radius: var(--radius-xl);
-  padding: 48px;
+  padding: 40px;
   border: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   gap: 40px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-md);
   transition: var(--transition-spring);
-}
-
-.uploadCard:hover {
-  box-shadow: var(--shadow-floating);
 }
 
 .dropzone {
   width: 100%;
-  height: 320px;
-  border: 3px dashed var(--border-color);
+  height: 360px;
+  background: var(--bg-app);
   border-radius: var(--radius-xl);
+  border: 2px dashed var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 24px;
   cursor: pointer;
-  transition: var(--transition-spring);
-  background: var(--bg-app);
-  position: relative;
-  overflow: hidden;
-}
-
-.dropzone::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--primary);
-  opacity: 0;
   transition: var(--transition);
 }
 
@@ -87,96 +72,78 @@
 .dropzone.isDragging {
   background: white;
   border-color: var(--primary);
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-xl);
-}
-
-.dropzone.isDragging::after {
-  opacity: 0.05;
 }
 
 .dropzoneIcon {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   background: white;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transition: var(--transition-spring);
-  z-index: 1;
-}
-
-.dropzone:hover .dropzoneIcon {
-  transform: scale(1.1) rotate(5deg);
-  background: var(--primary);
-  color: white;
-}
-
-.dropzoneText {
-  text-align: center;
-  z-index: 1;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 .dropzoneText p {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--secondary);
   margin-bottom: 8px;
-  letter-spacing: -0.5px;
 }
 
 .dropzoneText span {
-  font-size: 15px;
-  color: var(--text-dim);
-  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .fileInfo {
   width: 100%;
-  background: var(--bg-app);
-  padding: 24px 32px;
-  border-radius: var(--radius-xl);
+  background: white;
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 2px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
   animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .fileName {
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--secondary);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .removeBtn {
   background: white;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   color: var(--text-muted);
   cursor: pointer;
   padding: 10px;
   border-radius: var(--radius-md);
-  transition: var(--transition-spring);
+  transition: var(--transition);
 }
 
 .removeBtn:hover {
   background: var(--danger);
   color: white;
   border-color: var(--danger);
-  transform: scale(1.1) rotate(5deg);
 }
 
 .instructions {
-  background: var(--bg-app);
+  background: white;
   padding: 32px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .instructionTitle {
@@ -197,44 +164,25 @@
 
 .instructionItem {
   display: flex;
-  gap: 16px;
-  font-size: 15px;
+  gap: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   font-weight: 600;
   line-height: 1.6;
 }
 
-.downloadTemplate {
-  margin-top: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  background: white;
-  color: var(--primary);
-  border: 2px solid var(--primary);
-  padding: 14px 28px;
-  border-radius: var(--radius-lg);
-  font-weight: 800;
-  transition: var(--transition-spring);
-}
-
-.downloadTemplate:hover {
-  background: var(--primary);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.3);
-}
-
 .uploadBtn {
   width: 100%;
-  padding: 20px;
-  font-size: 18px;
+  padding: 16px;
+  font-size: 16px;
+  border-radius: var(--radius-md);
 }
 
 .statsArea {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+  margin-top: 40px;
 }
 
 .statCard {
@@ -243,18 +191,18 @@
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
   transition: var(--transition-spring);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .statCard:hover {
   transform: translateY(-4px);
-  border-color: var(--primary);
+  border-color: var(--primary-light);
   box-shadow: var(--shadow-lg);
 }
 
 .statLabel {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -262,65 +210,46 @@
 }
 
 .statValue {
-  font-size: 32px;
-  font-weight: 900;
+  font-size: 28px;
+  font-weight: 800;
   color: var(--secondary);
 }
 
-.errorArea {
-  background: #FFF5F5;
-  border: 2px solid #FED7D7;
-  padding: 40px;
-  border-radius: var(--radius-xl);
-}
-
-.errorList li {
-  background: white;
-  padding: 16px 20px;
-  border-radius: var(--radius-lg);
-  border-left: 6px solid var(--danger);
-  font-weight: 700;
-  box-shadow: var(--shadow-sm);
-}
-
 .dangerZone {
-  background: #FFF5F5;
-  border: 2px dashed #FEB2B2;
-  border-radius: var(--radius-xl);
-  padding: 48px;
   margin-top: 64px;
+  padding: 40px;
+  background: #fff1f2;
+  border: 1px solid #fee2e2;
+  border-radius: var(--radius-xl);
 }
 
 .dangerHeader h3 {
-  font-size: 24px;
-  font-weight: 900;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--danger);
+  margin-bottom: 8px;
 }
 
 .dangerDesc {
-  font-size: 16px;
+  font-size: 14px;
+  color: var(--text-muted);
   font-weight: 600;
-  color: #718096;
-}
-
-.resetInput {
-  border: 2px solid #FED7D7;
-  font-weight: 700;
-  padding: 16px 24px;
+  margin-bottom: 24px;
 }
 
 .resetBtn {
-  padding: 16px 40px;
-  font-size: 16px;
+  padding: 12px 24px;
+  font-size: 14px;
+  background: white;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  font-weight: 700;
 }
 
-.animateSpin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.resetBtn:hover {
+  background: var(--danger);
+  color: white;
 }
 
 @keyframes slideDown {

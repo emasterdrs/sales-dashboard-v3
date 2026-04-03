@@ -1,8 +1,7 @@
-.container {
-  padding: var(--content-padding);
-  max-width: 1200px;
+.pageContainer {
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  max-width: 1600px;
   margin: 0 auto;
-  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .header {
@@ -14,20 +13,21 @@
 
 .titleArea {
   display: flex;
-  gap: 24px;
   align-items: center;
+  gap: 24px;
 }
 
 .iconWrapper {
-  width: 72px;
-  height: 72px;
-  background: var(--secondary);
+  width: 64px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .title {
@@ -45,36 +45,26 @@
 }
 
 .addBtn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   background: var(--primary);
   color: white;
-  border: none;
-  padding: 16px 32px;
-  border-radius: var(--radius-lg);
-  font-weight: 800;
-  cursor: pointer;
-  transition: var(--transition-spring);
-  box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  box-shadow: 0 4px 10px var(--primary-glow);
+  transition: var(--transition);
 }
 
 .addBtn:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.5);
+  background: var(--primary-dark);
+  transform: translateY(-2px);
 }
 
 .listCard {
-  background: var(--bg-card);
+  background: white;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
-  box-shadow: var(--shadow-xl);
-  transition: var(--transition-spring);
-}
-
-.listCard:hover {
-  box-shadow: var(--shadow-floating);
+  box-shadow: var(--shadow-lg);
 }
 
 .inquiryList {
@@ -84,145 +74,104 @@
 
 .inquiryList th {
   text-align: left;
-  padding: 28px;
+  padding: 20px 32px;
   background: var(--bg-app);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.inquiryList td {
-  padding: 28px;
-  border-bottom: 1px solid var(--bg-app);
-  font-size: 15px;
-  color: var(--text-main);
-  transition: var(--transition);
-}
-
-.row {
-  cursor: pointer;
-  transition: var(--transition-spring);
-}
-
-.row:hover {
-  background: var(--bg-app);
-  transform: scale(1.005);
-}
-
-.subject {
-  font-weight: 800;
-  color: var(--secondary);
-  font-size: 16px;
-}
-
-.statusBadge {
-  padding: 8px 18px;
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-.statusOpen {
-  background: #FEF2F2;
-  color: var(--danger);
-  border: 1px solid #FEE2E2;
+.inquiryList td {
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 15px;
+  color: var(--text-main);
 }
 
-.statusClosed {
-  background: #F1F5F9;
-  color: var(--text-dim);
-  border: 1px solid var(--border-subtle);
+.row {
+  cursor: pointer;
+  transition: var(--transition);
 }
 
-.emptyState {
-  padding: 120px 0;
-  text-align: center;
-  color: var(--text-dim);
-  font-weight: 600;
+.row:hover {
+  background: var(--bg-app);
 }
 
-/* Modal and Detail view */
+.subject {
+  font-weight: 700;
+  color: var(--secondary);
+}
+
+.statusBadge {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.statusOpen { background: #fef3c7; color: #92400e; }
+.statusClosed { background: #dcfce7; color: #166534; }
+
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(12px);
+  background: rgba(9, 9, 11, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  animation: fadeIn 0.4s ease-out;
+  animation: fade-in 0.3s ease-out;
 }
 
 .modal {
   background: white;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   width: 100%;
-  max-width: 720px;
-  padding: 56px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-floating);
-  animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  max-width: 600px;
+  padding: 48px;
+  box-shadow: var(--shadow-xl);
+  animation: slide-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .modalTitle {
-  font-size: 28px;
-  font-weight: 900;
+  font-size: 24px;
+  font-weight: 800;
   color: var(--secondary);
-  margin-bottom: 40px;
-  letter-spacing: -1px;
+  margin-bottom: 32px;
 }
 
 .input, .textarea {
-  border: 2px solid var(--border-subtle);
-  background: var(--bg-app);
-  font-weight: 700;
-  padding: 16px 24px;
-}
-
-.input:focus, .textarea:focus {
-  background: white;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 5px var(--primary-glow);
+  width: 100%;
+  margin-bottom: 20px;
 }
 
 .contentView {
   background: var(--bg-app);
-  padding: 32px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-subtle);
-  font-size: 16px;
-  line-height: 2;
-  font-weight: 500;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-main);
+  margin-bottom: 24px;
 }
 
 .answerView {
-  background: var(--primary-glow);
-  padding: 32px;
-  border-radius: var(--radius-xl);
-  border: 1px solid rgba(99, 102, 241, 0.1);
-  color: var(--primary-dark);
-  font-size: 16px;
-  line-height: 2;
+  background: #f0fdf4;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  color: #166534;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.animateSpin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-32px); }
-  to { opacity: 1; transform: translateY(0); }
+@media (max-width: 1024px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
 }

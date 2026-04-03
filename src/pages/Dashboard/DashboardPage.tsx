@@ -38,8 +38,8 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const isTypeMode = location.pathname.startsWith('/type');
 
-  const [year] = useState(new Date().getFullYear());
-  const [month] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [unit, setUnit] = useState<'won' | 'million' | 'billion'>('billion');
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string; level: number }[]>([]);
   const [currentLevel, setCurrentLevel] = useState(0); 
@@ -372,19 +372,44 @@ const DashboardPage: React.FC = () => {
           <p>{year}년 {month}월 분석 리포트</p>
         </div>
         
-        <div className={styles.modeSwitcher}>
-          <button 
-            className={`${styles.modeBtn} ${!isTypeMode ? styles.activeMode : ''}`}
-            onClick={() => navigate('/team/goal')}
-          >
-            <Building2 size={16} /> <span>조직별 실적</span>
-          </button>
-          <button 
-            className={`${styles.modeBtn} ${isTypeMode ? styles.activeMode : ''}`}
-            onClick={() => navigate('/type/goal')}
-          >
-            <Layers size={16} /> <span>제품유형별</span>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className={styles.periodSelector}>
+            <select 
+              className={styles.dateSelect} 
+              value={year} 
+              onChange={(e) => setYear(Number(e.target.value))}
+            >
+              {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <span className={styles.dateLabel}>년</span>
+            <select 
+              className={styles.dateSelect} 
+              value={month} 
+              onChange={(e) => setMonth(Number(e.target.value))}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <span className={styles.dateLabel}>월</span>
+          </div>
+
+          <div className={styles.modeSwitcher}>
+            <button 
+              className={`${styles.modeBtn} ${!isTypeMode ? styles.activeMode : ''}`}
+              onClick={() => navigate('/team/goal')}
+            >
+              <Building2 size={16} /> <span>조직별 실적</span>
+            </button>
+            <button 
+              className={`${styles.modeBtn} ${isTypeMode ? styles.activeMode : ''}`}
+              onClick={() => navigate('/type/goal')}
+            >
+              <Layers size={16} /> <span>제품유형별</span>
+            </button>
+          </div>
         </div>
       </header>
 

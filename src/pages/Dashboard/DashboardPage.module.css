@@ -1,27 +1,31 @@
 .page {
-  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   max-width: 1600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 40px;
 }
 
 .topControl {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 8px;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
 .titleArea h1 {
   font-size: 36px;
   margin-bottom: 8px;
+  letter-spacing: -1.5px;
+  font-weight: 800;
+  color: var(--secondary);
 }
 
 .titleArea p {
   color: var(--text-muted);
   font-weight: 600;
+  font-size: 15px;
 }
 
 .modeSwitcher {
@@ -29,9 +33,9 @@
   background: white;
   padding: 6px;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   gap: 4px;
+  border: 1px solid var(--border-subtle);
 }
 
 .modeBtn {
@@ -44,9 +48,9 @@
   background: transparent;
   color: var(--text-muted);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
-  transition: var(--transition-spring);
+  transition: var(--transition);
 }
 
 .modeBtn:hover {
@@ -57,7 +61,7 @@
 .modeBtn.activeMode {
   background: var(--primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 10px var(--primary-glow);
 }
 
 .unitBadge {
@@ -69,12 +73,12 @@
   padding: 10px 20px;
   border-radius: var(--radius-full);
   font-size: 13px;
-  font-weight: 800;
-  border: 1px solid var(--border-color);
+  font-weight: 700;
   box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
 }
 
-/* Bento Grid */
+/* Bento Grid - Style #1 */
 .dashboardGrid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -82,19 +86,19 @@
 }
 
 .chartCard {
-  background: var(--bg-card);
+  background: white;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
   padding: 32px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   transition: var(--transition-spring);
   display: flex;
   flex-direction: column;
 }
 
 .chartCard:hover {
-  box-shadow: var(--shadow-floating);
-  transform: translateY(-8px) scale(1.01);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
   border-color: var(--primary-light);
 }
 
@@ -132,20 +136,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-inner);
 }
 
 .chartTitle {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--secondary);
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 .chartUnit {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -164,8 +167,8 @@
 @media (max-width: 768px) {
   .topControl {
     flex-direction: column;
-    align-items: stretch;
-    gap: 24px;
+    align-items: flex-start;
+    gap: 20px;
   }
   
   .modeSwitcher {
@@ -174,6 +177,42 @@
   
   .modeBtn {
     flex: 1;
-    justify-content: center;
   }
+}
+
+.periodSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 6px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.dateSelect {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--secondary);
+  cursor: pointer;
+  padding: 4px 10px;
+  outline: none;
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.dateSelect:hover {
+  background: var(--bg-app);
+  color: var(--primary);
+}
+
+.dateLabel {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-left: -4px;
 }
