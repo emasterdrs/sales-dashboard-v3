@@ -147,7 +147,7 @@ const DataUploadPage: React.FC = () => {
       const missingDivNames = Array.from(new Set(rows.map(r => r.div))).filter(d => d && !local.divisions[d] && !local.divisions[`_norm_${normalize(d)}`]);
       if (missingDivNames.length > 0) {
           const { data: insertedDivs, error: divErr } = await supabase.from('sales_divisions').insert(missingDivNames.map(name => ({ company_id: cid, name: name.trim() }))).select();
-          if (divErr) console.error('Division Insert Error:', divErr);
+          if (divErr) throw new Error(`[사업부 생성 실패] ${divErr.message}`);
           insertedDivs?.forEach(d => {
               local.divisions[d.name.trim()] = d.id;
               local.divisions[`_norm_${normalize(d.name)}`] = d.id;
@@ -176,7 +176,7 @@ const DataUploadPage: React.FC = () => {
           
           if (teamInserts.length > 0) {
               const { data: insertedTeams, error: teamErr } = await supabase.from('sales_teams').insert(teamInserts as any).select();
-              if (teamErr) console.error('Team Insert Error:', teamErr);
+              if (teamErr) throw new Error(`[영업팀 생성 실패] ${teamErr.message}`);
               insertedTeams?.forEach(t => {
                   local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id;
                   local.teamMap[`${t.division_id}_norm_${normalize(t.name)}`] = t.id;
@@ -215,7 +215,7 @@ const DataUploadPage: React.FC = () => {
           
           if (staffInserts.length > 0) {
               const { data: insertedStaff, error: sErr } = await supabase.from('sales_staff').insert(staffInserts as any).select();
-              if (sErr) console.error('Staff Insert Error:', sErr);
+              if (sErr) throw new Error(`[사원 생성 실패] ${sErr.message}`);
               insertedStaff?.forEach(s => {
                   local.staffMap[`${s.team_id}_${s.name.trim()}`] = s.id;
                   local.staffMap[`${s.team_id}_norm_${normalize(s.name)}`] = s.id;
@@ -239,7 +239,7 @@ const DataUploadPage: React.FC = () => {
 
       if (missingCatNames.length > 0) {
           const { data: insertedCats, error: cErr } = await supabase.from('product_categories').insert(missingCatNames.map(name => ({ company_id: cid, name: name.trim() }))).select();
-          if (cErr) console.error('Category Insert Error:', cErr);
+          if (cErr) throw new Error(`[카테고리 생성 실패] ${cErr.message}`);
           insertedCats?.forEach(c => {
               local.catMap[c.name.trim()] = c.id;
               local.catMap[`_norm_${normalize(c.name)}`] = c.id;
