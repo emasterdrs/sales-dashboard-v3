@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Zap, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, X, Loader2, Zap, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,7 +24,6 @@ const DataUploadPage: React.FC = () => {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [orgMap, setOrgMap] = useState<any>({ divisions: {}, teamMap: {}, staffMap: {}, catMap: {} });
   const [resetConfirmation, setResetConfirmation] = useState('');
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => { fetchOrgInfo(); }, [profile?.company_id]);
 
@@ -71,7 +70,7 @@ const DataUploadPage: React.FC = () => {
     if (!profile?.company_id && fetchProfile) await fetchProfile();
     const cid = profile?.company_id;
     if (!file || !cid) return alert('파일 또는 로그인 정보가 없습니다.');
-    setIsUploading(true); setResult(null); setUploadProgress(0);
+    setIsUploading(true); setResult(null);
     const errList: string[] = [];
     try {
       const rows = await parseExcelOrCsv(file);
@@ -143,10 +142,9 @@ const DataUploadPage: React.FC = () => {
       for (let i = 0; i < finalRecs.length; i += CHUNK) {
           const { error: uErr } = await supabase.from('sales_records').upsert(finalRecs.slice(i, i + CHUNK), { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
           if (uErr) errList.push(`저장 실패: ${uErr.message}`); else sc += finalRecs.slice(i, i + CHUNK).length;
-          setUploadProgress(45 + Math.round(((i + CHUNK) / finalRecs.length) * 55));
       }
       setResult({ total: rows.length, success: sc, failed: rows.length - sc, errors: errList });
-    } catch (e: any) { alert(e.message); } finally { setIsUploading(false); setUploadProgress(100); }
+    } catch (e: any) { alert(e.message); } finally { setIsUploading(false); }
   };
 
   const handleReset = async () => {
