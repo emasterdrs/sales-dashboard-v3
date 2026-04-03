@@ -10,6 +10,7 @@ interface UploadResult {
   total: number;
   success: number;
   failed: number;
+  merged: number;
   errors: string[];
 }
 
@@ -249,6 +250,7 @@ const DataUploadPage: React.FC = () => {
 
       // Phase 2: Record Preparation & Aggregation (v3.2 Space-Agnostic Matcher)
       const aggMap = new Map<string, any>();
+      let skippedCount = 0;
       rows.forEach(r => {
           const dId = local.divisions[r.div] || local.divisions[`_norm_${normalize(r.div)}`];
           const tId = dId ? (local.teamMap[`${dId}_${r.team}`] || local.teamMap[`${dId}_norm_${normalize(r.team)}`]) : null;
@@ -260,6 +262,7 @@ const DataUploadPage: React.FC = () => {
           if (!r.date || !sId) {
               if(!r.date) errList.push(`${r._row}행: 날짜 파싱 실패`);
               else errList.push(`${r._row}행: 사원 매칭 실패(${r.div}/${r.team}/${r.name})`);
+              skippedCount++;
               return;
           }
           
@@ -281,6 +284,7 @@ const DataUploadPage: React.FC = () => {
       // Phase 3: Final Batch Upsert (v3.2 High-Performance Streamer)
       let sc = 0; const CHUNK = 1000;
       const totalRecs = finalRecs.length;
+      const mergedCount = rows.length - totalRecs - skippedCount;
       if (totalRecs === 0 && rows.length > 0) throw new Error("유효한 실적 데이터가 없습니다. 사원 정보와 데이터 형식을 확인해주세요.");
 
       for (let i = 0; i < totalRecs; i += CHUNK) {
@@ -297,7 +301,7 @@ const DataUploadPage: React.FC = () => {
           await new Promise(r => setTimeout(r, 10)); // Throttling for stability (10ms)
       }
 
-      setResult({ total: rows.length, success: sc, failed: rows.length - sc, errors: errList });
+      setResult({ total: rows.length, success: sc, failed: totalRecs - sc + skippedCount, merged: mergedCount, errors: errList });
       setProgress(100);
       if (sc > 0) {
         setFile(null);
