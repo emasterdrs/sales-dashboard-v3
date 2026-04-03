@@ -81,7 +81,8 @@ CREATE TABLE public.sales_records (
     amount BIGINT DEFAULT 0, -- Store in KRW
     sales_date DATE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    team_id UUID REFERENCES public.sales_teams(id) ON DELETE SET NULL -- Added team_id for easier querying
+    team_id UUID REFERENCES public.sales_teams(id) ON DELETE SET NULL, -- Added team_id for easier querying
+    UNIQUE(company_id, staff_id, customer_name, item_name, sales_date)
 );
 
 -- Sales Targets

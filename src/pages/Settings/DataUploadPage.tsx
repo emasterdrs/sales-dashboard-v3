@@ -83,22 +83,15 @@ const DataUploadPage: React.FC = () => {
         dateValue = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
       }
 
-      // Try to extract category_id if present (6th column)
-      let categoryId = null;
-      if (row[5]) {
-        const catStr = String(row[5]).trim();
-        // Extract UUID or ID part if they look like "cat_id_X" or actual IDs
-        categoryId = catStr;
-      }
 
       return {
         _rowIndex: index + 2,
         date: dateValue ? String(dateValue).trim() : '',
-        name: row[1] ? String(row[1]).trim() : '',
-        customer: row[2] ? String(row[2]).trim() : '',
-        item: row[3] ? String(row[3]).trim() : '',
-        amountStr: row[4] ? String(row[4]) : '',
-        category_id: categoryId
+        teamName: row[1] ? String(row[1]).trim() : '',
+        name: row[2] ? String(row[2]).trim() : '',
+        customer: row[3] ? String(row[3]).trim() : '',
+        item: row[4] ? String(row[4]).trim() : '',
+        amountStr: row[5] ? String(row[5]) : ''
       };
     }).filter(row => row !== null);
     
@@ -175,9 +168,6 @@ const DataUploadPage: React.FC = () => {
         alert('소속 기업 정보를 확인할 수 없습니다.');
         return;
       }
-      const { data: realCats } = await supabase.from('product_categories').select('id, name').eq('company_id', currentCompanyId);
-      const catNameMap: Record<string, string> = {};
-      (realCats || []).forEach(c => { catNameMap[c.name] = c.id; });
 
       for (const row of rows) {
         const rowNum = (row as any)._rowIndex;
@@ -198,25 +188,17 @@ const DataUploadPage: React.FC = () => {
           continue;
         }
 
-        const cleanAmount = parseInt(row.amountStr.replace(/[^0-9]/g, ''));
-        if (isNaN(cleanAmount)) {
-          errors.push(`${rowNum}행: 금액 형식이 잘못되었습니다.`);
+        // Strict validation: Amount must be a valid number
+        const cleanAmount = parseInt(String(row.amountStr).replace(/[^0-9]/g, ''));
+        if (isNaN(cleanAmount) || cleanAmount === 0) {
+          errors.push(`${rowNum}행: 매출액 형식이 잘못되었거나 0입니다.`);
           continue;
-        }
-
-        // Try to map category_id
-        let finalCatId = row.category_id;
-        // If it starts with "cat_id_", try to find by display_order index from seeded data or just use null
-        if (finalCatId?.startsWith('cat_id_')) {
-          const idx = parseInt(finalCatId.replace('cat_id_', '')) - 1;
-          finalCatId = realCats?.[idx]?.id || null;
         }
 
         validRecords.push({
           company_id: currentCompanyId,
           staff_id: staffMapping.id,
           team_id: staffMapping.teamId,
-          category_id: finalCatId,
           customer_name: row.customer || '미지정',
           item_name: row.item || '미지정',
           amount: cleanAmount,
@@ -230,7 +212,9 @@ const DataUploadPage: React.FC = () => {
         const CHUNK_SIZE = 500;
         for (let i = 0; i < validRecords.length; i += CHUNK_SIZE) {
           const chunk = validRecords.slice(i, i + CHUNK_SIZE);
-          const { error } = await supabase.from('sales_records').insert(chunk);
+          const { error } = await supabase
+            .from('sales_records')
+            .upsert(chunk, { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
           if (error) {
             errors.push(`일부 데이터 저장 중 오류 발생 (${i}~${i+chunk.length}행): ${error.message}`);
           } else {
@@ -342,15 +326,19 @@ const DataUploadPage: React.FC = () => {
           <div className={styles.instructionList}>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>1.</div>
-              <p>첫 줄에는 항목명이 포함되어야 합니다 (날짜, 성명, 거래처, 품목, 금액 순).</p>
+              <p>첫 번째 행은 항목명이며 두 번째 행부터 데이터가 인식됩니다.</p>
             </div>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>2.</div>
-              <p>성명은 [조직 및 인원 관리]에 등록된 정식 이름과 정확히 일치해야 합니다.</p>
+              <p>순서: 날짜, 팀명, 성명, 거래처명, 품목명, 매출액 (6개 열 필수)</p>
             </div>
             <div className={styles.instructionItem}>
               <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>3.</div>
-              <p>날짜는 YYYY-MM-DD (예: 2025-03-24) 형식을 권장합니다.</p>
+              <p>성명은 조직 관리에서 등록된 정식 이름과 정확히 일치해야 합니다.</p>
+            </div>
+            <div className={styles.instructionItem}>
+              <div style={{ color: '#1a1a1a', fontWeight: 'bold' }}>4.</div>
+              <p>동일한 [날짜+거래처+품목] 데이터는 최신 업로드 건으로 갱신(중복 방지)됩니다.</p>
             </div>
           </div>
           <button className={styles.downloadTemplate} onClick={downloadTemplate}>
