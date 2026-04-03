@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area
 } from 'recharts';
+import { 
+  Building2, 
+  Layers,
+  TrendingUp,
+  LayoutDashboard
+} from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardHeader from '../../components/Dashboard/DashboardHeader';
@@ -30,6 +36,7 @@ interface DashboardData {
 const DashboardPage: React.FC = () => {
   const { profile } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isTypeMode = location.pathname.startsWith('/type');
 
   const [year] = useState(new Date().getFullYear());
@@ -67,7 +74,6 @@ const DashboardPage: React.FC = () => {
     refreshDrillDownData();
   }, [currentLevel, selectedIds, profile?.company_id, year, month, unit, isTypeMode]);
 
-  // Reset level when mode changes
   useEffect(() => {
     setCurrentLevel(0);
     setBreadcrumbs([]);
@@ -90,26 +96,15 @@ const DashboardPage: React.FC = () => {
   const initDashboard = async () => {
     if (!profile?.company_id) return;
     try {
-      // 1. Working Days
       const { data: wd } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month).single();
       if (wd) setWorkingDays({ total: wd.total_days, current: Math.min(wd.total_days, 15) }); 
 
-      // 2. Summary (Current Month)
       const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
       const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
       
-      const perfQuery = supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
+      const { data: records } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
       
-      // If Type Mode, filter out empty categories or '미분류' if specifically requested to show only 'Valid' types
-      // But user said "Filter out if product type is blank". 
-      // In our DB, '미분류' is name. If category_id refers to a category with empty name?
-      // Let's just assume we only show records with non-null category_id that isn't '미분류' if we want to be strict,
-      // but usually '미분류' IS the fallback for blank.
-      // The request says: "'제품유형'이 빈칸인 데이터는 대시보드 '유형별 실적' 차트에서 노출되지 않도록 필터링"
-      
-      const { data: records } = await perfQuery;
       let filteredRecords = records || [];
-
       if (isTypeMode) {
         const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id);
         const validCatIds = cats?.filter(c => c.name && c.name !== '미분류').map(c => c.id) || [];
@@ -139,12 +134,10 @@ const DashboardPage: React.FC = () => {
         originalPerfVal: totalPerf
       });
 
-      // 3. Year Trend
       const yearStart = `${year}-01-01`;
       const yearEnd = `${year}-12-31`;
-      const trendQuery = supabase.from('sales_records').select('amount, sales_date, category_id').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd);
+      const { data: yearPerf } = await supabase.from('sales_records').select('amount, sales_date, category_id').eq('company_id', profile.company_id).gte('sales_date', yearStart).lte('sales_date', yearEnd);
       
-      const { data: yearPerf } = await trendQuery;
       let trendRecs = yearPerf || [];
       if (isTypeMode) {
          const { data: cats } = await supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id);
@@ -174,7 +167,6 @@ const DashboardPage: React.FC = () => {
       let data: DashboardData[] = [];
       
       if (!isTypeMode) {
-        // --- TEAM BASED MODE ---
         if (currentLevel === 0) {
           const { data: divisions } = await supabase.from('sales_divisions').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'DIVISION').eq('year', year).eq('month', month);
@@ -221,13 +213,7 @@ const DashboardPage: React.FC = () => {
             const expectedAchieve = teamTarget > 0 ? (expected / Number(teamTarget)) * 100 : 0;
             const expectedGap = expected - Number(teamTarget);
 
-            return {
-              id: t.id, name: t.name,
-              goal: formatValue(Number(teamTarget)), performance: formatValue(teamPerf), achieve: achieve.toFixed(1),
-              gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-              expectedGoal: formatValue(Number(teamTarget)), expectedPerformance: formatValue(expected),
-              expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
-            };
+            return { id: t.id, name: t.name, goal: formatValue(Number(teamTarget)), performance: formatValue(teamPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(teamTarget)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 2 && selectedIds.teamId) {
@@ -247,13 +233,7 @@ const DashboardPage: React.FC = () => {
             const expectedAchieve = staffTarget > 0 ? (expected / Number(staffTarget)) * 100 : 0;
             const expectedGap = expected - Number(staffTarget);
 
-            return {
-              id: s.id, name: s.name,
-              goal: formatValue(Number(staffTarget)), performance: formatValue(staffPerf), achieve: achieve.toFixed(1),
-              gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-              expectedGoal: formatValue(Number(staffTarget)), expectedPerformance: formatValue(expected),
-              expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
-            };
+            return { id: s.id, name: s.name, goal: formatValue(Number(staffTarget)), performance: formatValue(staffPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(staffTarget)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
@@ -271,7 +251,6 @@ const DashboardPage: React.FC = () => {
       } else {
         // --- TYPE BASED MODE ---
         if (currentLevel === 0) {
-          // Level 0: Categories (제품유형)
           const { data: cats } = await supabase.from('product_categories').select('*').eq('company_id', profile.company_id).order('display_order', { ascending: true });
           const { data: targets } = await supabase.from('sales_targets').select('*').eq('company_id', profile.company_id).eq('entity_type', 'CATEGORY').eq('year', year).eq('month', month);
           const { data: perf } = await supabase.from('sales_records').select('amount, category_id').eq('company_id', profile.company_id).gte('sales_date', startDate).lte('sales_date', endDate);
@@ -289,37 +268,23 @@ const DashboardPage: React.FC = () => {
             const expectedAchieve = target > 0 ? (expected / Number(target)) * 100 : 0;
             const expectedGap = expected - Number(target);
 
-            return {
-              id: c.id, name: c.name,
-              goal: formatValue(Number(target)), performance: formatValue(catPerf), achieve: achieve.toFixed(1),
-              gap: (gap >= 0 ? '+' : '') + formatValue(gap),
-              expectedGoal: formatValue(Number(target)), expectedPerformance: formatValue(expected),
-              expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap)
-            };
+            return { id: c.id, name: c.name, goal: formatValue(Number(target)), performance: formatValue(catPerf), achieve: achieve.toFixed(1), gap: (gap >= 0 ? '+' : '') + formatValue(gap), expectedGoal: formatValue(Number(target)), expectedPerformance: formatValue(expected), expectedAchieve: expectedAchieve.toFixed(1), expectedGap: (expectedGap >= 0 ? '+' : '') + formatValue(expectedGap) };
           });
         }
         else if (currentLevel === 1 && selectedIds.categoryId) {
-          // Level 1: Staff for this Category
           const { data: perf } = await supabase.from('sales_records').select('amount, staff_id').eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
-          const { data: staffList } = await supabase.from('sales_staff').select('id, name, display_order').order('display_order', { ascending: true });
-          
+          const { data: staffList } = await supabase.from('sales_staff').select('id, name').order('display_order', { ascending: true });
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.staff_id, (map.get(p.staff_id) || 0) + Number(p.amount)));
-          
-          data = (staffList || []).filter(s => map.has(s.id)).map(s => {
-            const amount = map.get(s.id) || 0;
-            return { id: s.id, name: s.name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' };
-          });
+          data = (staffList || []).filter(s => map.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(map.get(s.id) || 0), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 2 && selectedIds.staffId && selectedIds.categoryId) {
-          // Level 2: Customers for this Staff & Category
           const { data: perf } = await supabase.from('sales_records').select('amount, customer_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).gte('sales_date', startDate).lte('sales_date', endDate);
           const map = new Map<string, number>();
           (perf || []).forEach(p => map.set(p.customer_name, (map.get(p.customer_name) || 0) + Number(p.amount)));
           data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
         }
         else if (currentLevel === 3 && selectedIds.staffId && selectedIds.categoryId && selectedIds.customerName) {
-            // Level 3: Items
             const { data: perf } = await supabase.from('sales_records').select('amount, item_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
             const map = new Map<string, number>();
             (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + Number(p.amount)));
@@ -380,11 +345,8 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleBreadcrumbClick = (idx: number) => {
-    if (idx === -1) {
-      setBreadcrumbs([]);
-      setSelectedIds({});
-      setCurrentLevel(0);
-    } else {
+    if (idx === -1) { setBreadcrumbs([]); setSelectedIds({}); setCurrentLevel(0); } 
+    else {
       const targetBcs = breadcrumbs.slice(0, idx + 1);
       setBreadcrumbs(targetBcs);
       setCurrentLevel(idx + 1);
@@ -405,9 +367,27 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className={`${styles.page} fade-in`}>
+      <div className={styles.topControl}>
+        <div className={styles.modeSwitcher}>
+          <button 
+            className={`${styles.modeBtn} ${!isTypeMode ? styles.activeMode : ''}`}
+            onClick={() => navigate('/team/goal')}
+          >
+            <Building2 size={16} /> <span>사업부별(조직) 실적</span>
+          </button>
+          <button 
+            className={`${styles.modeBtn} ${isTypeMode ? styles.activeMode : ''}`}
+            onClick={() => navigate('/type/goal')}
+          >
+            <Layers size={16} /> <span>제품유형별 실적</span>
+          </button>
+        </div>
+        <div className={styles.unitBadge}><LayoutDashboard size={14} /> <span>종합 분석 모드</span></div>
+      </div>
+
       <DashboardHeader 
         title={`${year}년 ${month}월 ${isTypeMode ? '제품유형별' : '사업부별'} 매출실적`}
-        subtitle={`${isTypeMode ? '제품군 유형별' : '사업부별'} 분석 마감 현황`}
+        subtitle={`${isTypeMode ? '제품군 유형별' : '사업부 조직별'} 분석 마감 현황`}
         totalWorkingDays={workingDays.total}
         currentWorkingDays={workingDays.current}
         isExpectedClosingOn={isExpectedClosingOn}
@@ -416,9 +396,12 @@ const DashboardPage: React.FC = () => {
         onUnitChange={setUnit}
       />
 
-      <div className={styles.chartCard}>
+      <div className={styles.chartCard} style={{ background: isTypeMode ? 'linear-gradient(135deg, #fff 0%, #fffbf0 100%)' : 'white' }}>
         <div className={styles.chartHeader}>
-          <h3 className={styles.chartTitle}>월별 매출 추이 ({year}년)</h3>
+          <div className={styles.titleGroup}>
+            <TrendingUp size={20} className={styles.titleIcon} />
+            <h3 className={styles.chartTitle}>{isTypeMode ? '유형별 분석 추이' : '사업부별 분석 추이'} ({year}년)</h3>
+          </div>
           <span className={styles.chartUnit}>단위: {getUnitName()}</span>
         </div>
         <div className={styles.chartWrapper}>
@@ -426,15 +409,15 @@ const DashboardPage: React.FC = () => {
             <AreaChart data={trendData}>
               <defs>
                 <linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f6ad55" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#f6ad55" stopOpacity={0}/>
+                  <stop offset="5%" stopColor={isTypeMode ? "#f6ad55" : "#ed8936"} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#ed8936" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} />
               <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-              <Area type="monotone" dataKey="performance" stroke="#ed8936" strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" name="실적" />
+              <Area type="monotone" dataKey="performance" stroke={isTypeMode ? "#f6ad55" : "#ed8936"} strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" name="실적" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
