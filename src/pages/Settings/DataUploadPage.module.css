@@ -433,6 +433,52 @@
   box-shadow: none;
 }
 
+.resetOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.resetOptionBtn {
+  background: white;
+  border: 2px solid var(--border-color);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.resetOptionBtn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.resetOptionBtn.active {
+  background: #FFF5F5;
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: var(--shadow-sm);
+}
+
+.resetControl {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resetConfirmArea {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .zapIcon {
   color: var(--primary);
   filter: drop-shadow(0 0 8px rgba(255, 179, 0, 0.4));
