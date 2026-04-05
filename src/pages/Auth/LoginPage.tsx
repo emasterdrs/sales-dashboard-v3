@@ -77,10 +77,12 @@ const LoginPage: React.FC = () => {
                 <div className={styles.imageSection}>
                     <img src="/login-bg.png" alt="VODA Identity Vision" className={styles.bgImg} />
                     <div className={styles.overlay}></div>
-                    <div className={styles.imageContent}>
+                    <div className={styles.imageContentTop}>
                         <h2 className={styles.premiumTitle}>Data with Vision</h2>
                         <p className={styles.subText}>비즈니스의 미래를 명확하게 시각화합니다</p>
-                        
+                    </div>
+
+                    <div className={styles.imageContentBottom}>
                         <ul className={styles.featureList}>
                             <li><BarChart2 size={22} className={styles.featureIcon} /><span>신속한 영업 실적 인사이트</span></li>
                             <li><Zap size={22} className={styles.featureIcon} /><span>서버 사이드 실적 자동 집계</span></li>
