@@ -77,7 +77,6 @@ const LoginPage: React.FC = () => {
                 <div className={styles.imageSection}>
                     <img src="/login-bg.png" alt="VODA Identity Vision" className={styles.bgImg} />
                     <div className={styles.overlay}></div>
-                    <img src="/voda-brand-v1.png" alt="VODA Brand Visual" className={styles.brandImg} />
                     <div className={styles.imageContent}>
                         <h2 className={styles.premiumTitle}>Data with Vision</h2>
                         <p className={styles.subText}>비즈니스의 미래를 명확하게 시각화합니다</p>
