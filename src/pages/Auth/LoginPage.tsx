@@ -85,7 +85,7 @@ const LoginPage: React.FC = () => {
                     <div className={styles.imageContentBottom}>
                         <ul className={styles.featureList}>
                             <li><BarChart2 size={22} className={styles.featureIcon} /><span>신속한 영업 실적 인사이트</span></li>
-                            <li><Zap size={22} className={styles.featureIcon} /><span>서버 사이드 실적 자동 집계</span></li>
+                            <li><Zap size={22} className={styles.featureIcon} /><span>지능형 자동 실적 분석 시스템</span></li>
                             <li><ShieldCheck size={22} className={styles.featureIcon} /><span>안전한 클라우드 보안 시스템</span></li>
                         </ul>
                     </div>
