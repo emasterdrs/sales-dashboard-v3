@@ -75,6 +75,7 @@ const LoginPage: React.FC = () => {
             <div className={styles.loginWrapper}>
                 {/* 🎨 Left Visual Section (Image will be chosen from samples) */}
                 <div className={styles.imageSection}>
+                    <img src="/login-bg.png" alt="VODA Identity Vision" className={styles.bgImg} />
                     <div className={styles.overlay}></div>
                     <img src="/voda-brand-v1.png" alt="VODA Brand Visual" className={styles.brandImg} />
                     <div className={styles.imageContent}>
@@ -82,9 +83,9 @@ const LoginPage: React.FC = () => {
                         <p className={styles.subText}>비즈니스의 미래를 명확하게 시각화합니다</p>
                         
                         <ul className={styles.featureList}>
-                            <li><BarChart2 size={22} className={styles.featureIcon} /><span>실시간 인사이트 대시보드</span></li>
-                            <li><Zap size={22} className={styles.featureIcon} /><span>서버 사이드 고성능 연산 엔진</span></li>
-                            <li><ShieldCheck size={22} className={styles.featureIcon} /><span>엔터프라이즈급 데이터 보안</span></li>
+                            <li><BarChart2 size={22} className={styles.featureIcon} /><span>신속한 영업 실적 인사이트</span></li>
+                            <li><Zap size={22} className={styles.featureIcon} /><span>서버 사이드 실적 자동 집계</span></li>
+                            <li><ShieldCheck size={22} className={styles.featureIcon} /><span>안전한 클라우드 보안 시스템</span></li>
                         </ul>
                     </div>
                 </div>
