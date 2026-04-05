@@ -1,8 +1,6 @@
 import React from 'react';
 import {
   Target,
-  History,
-  BarChart3,
   Calendar,
   Database,
   Settings,
@@ -79,23 +77,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
 
   const menuSections = [];
 
-  // 1. Dashboard Menus (For Company Admin and Regular Users)
+  // 1. Dashboard Menus (Integrated)
   if (isCompanyAdmin || isUser) {
     menuSections.push({
-      title: "사업부별 실적",
+      title: "데이터 분석",
       items: [
-        { icon: Target, label: "목표 대비", path: "/team/goal" },
-        { icon: History, label: "전년 대비", path: "/team/yoy" },
-        { icon: BarChart3, label: "전월 대비", path: "/team/mom" },
-        { icon: Calendar, label: "누계 실적", path: "/team/acc" },
-      ]
-    });
-    menuSections.push({
-      title: "제품유형별 실적",
-      items: [
-        { icon: Target, label: "목표 대비", path: "/type/goal" },
-        { icon: History, label: "전년 대비", path: "/type/yoy" },
-        { icon: BarChart3, label: "전월 대비", path: "/type/mom" },
+        { icon: LayoutDashboard, label: "통합 대시보드", path: "/dashboard" },
       ]
     });
   }
