@@ -317,9 +317,14 @@
 
 .google:hover { border-color: #4285F4; background-color: #f1f7ff; }
 .microsoft:hover { border-color: #00a1f1; background-color: #f1faff; }
-.kakao:hover { border-color: #3c1e1e; background-color: #fffaf0; }
-.naver:hover { border-color: #03c75a; background-color: #f0fff4; }
-.apple:hover { border-color: #000; background-color: #f7f7f7; }
+.kakao { background-color: #FEE500; border-color: #FEE500; }
+.kakao:hover { background-color: #fdd835; border-color: #fdd835; }
+
+.naver { background-color: #03C75A; border-color: #03C75A; }
+.naver:hover { background-color: #02b350; border-color: #02b350; }
+
+.apple { background-color: #000000; border-color: #000000; }
+.apple:hover { background-color: #222222; border-color: #222222; }
 
 .errorAlert {
   background-color: #fff5f5;
