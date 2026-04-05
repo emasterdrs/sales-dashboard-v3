@@ -26,8 +26,8 @@
   background-color: #1a202c;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 48px;
+  justify-content: flex-start;
+  padding: 64px 48px;
   overflow: hidden;
 }
 
@@ -44,7 +44,7 @@
 .overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(180deg, rgba(26, 32, 44, 0.2) 0%, rgba(26, 32, 44, 0.9) 100%);
+  background: linear-gradient(180deg, rgba(26, 32, 44, 0.4) 0%, rgba(26, 32, 44, 0.9) 100%);
   z-index: 1;
 }
 
@@ -61,7 +61,6 @@
   position: relative;
   z-index: 2;
   color: white;
-  margin-top: auto;
   width: 100%;
 }
 
@@ -69,9 +68,12 @@
   font-size: 32px;
   font-weight: 800;
   margin-bottom: 8px;
-  letter-spacing: -1px;
-  color: white;
-  text-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  letter-spacing: -1.5px;
+  background: linear-gradient(90deg, #fff, #f6ad55);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 10px 20px rgba(0,0,0,0.4);
 }
 
 .subText {
