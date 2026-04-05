@@ -68,7 +68,7 @@ const AuthWrapper: React.FC = () => {
       {/* Main Routes */}
       <Route path="/" element={
         <ProtectedRoute>
-          {effectiveRole === 'SUPER_ADMIN' ? <Navigate to="/mng-voda-8a2b" replace /> : <Navigate to="/team/goal" replace />}
+          {effectiveRole === 'SUPER_ADMIN' ? <Navigate to="/mng-voda-8a2b" replace /> : <Navigate to="/dashboard" replace />}
         </ProtectedRoute>
       } />
       
@@ -85,17 +85,8 @@ const AuthWrapper: React.FC = () => {
       <Route path="/adm-s-2s9k2/days" element={<AdminRoute><WorkingDaysPage /></AdminRoute>} />
       <Route path="/adm-s-2s9k2/types" element={<AdminRoute><CategoryManagementPage /></AdminRoute>} />
       
-      {/* Team Based Routes (Dashboard) */}
-      <Route path="/team/goal" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/team/yoy" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/team/mom" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/team/acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      
-      {/* Type Based Routes (Dashboard) */}
-      <Route path="/type/goal" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/type/yoy" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/type/mom" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/type/acc" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      {/* Unified Dashboard Route */}
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       
       {/* Support Routes */}
       <Route path="/support/inquiry" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />

@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      let finalProfile = data;
+      const finalProfile = data;
 
       // [CRITICAL FIX] Force link master account to demo company if missing
       if (finalProfile.email === 'emasterdrs@gmail.com' && !finalProfile.company_id) {

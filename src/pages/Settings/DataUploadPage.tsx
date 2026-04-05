@@ -301,11 +301,27 @@ const DataUploadPage: React.FC = () => {
           await new Promise(r => setTimeout(r, 10)); // Throttling for stability (10ms)
       }
 
+      // Phase 4: Server-side Pre-aggregation Refresh
+      setProgress(95);
+      const affectedMonths = Array.from(new Set(finalRecs.map(r => {
+        const d = new Date(r.sales_date);
+        return `${d.getFullYear()}-${d.getMonth() + 1}`;
+      })));
+
+      for (const m of affectedMonths) {
+        const [y, mm] = m.split('-').map(Number);
+        await supabase.rpc('refresh_sales_summary', { 
+            p_company_id: cid, 
+            p_year: y, 
+            p_month: mm 
+        });
+      }
+
       setResult({ total: rows.length, success: sc, failed: totalRecs - sc + skippedCount, merged: mergedCount, errors: errList });
       setProgress(100);
       if (sc > 0) {
         setFile(null);
-        alert(`업로드 완료!\n성공: ${sc}건\n실패: ${rows.length - sc}건`);
+        alert(`업로드 완료!\n성공: ${sc}건\n실패: ${rows.length - sc}건\n통계 계산이 완료되었습니다.`);
       }
     } catch (e: any) { alert(e.message); } finally { setIsUploading(false); setProgress(0); }
   };
@@ -318,9 +334,11 @@ const DataUploadPage: React.FC = () => {
       if (resetType === 'data') {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
+          await supabase.from('sales_summary').delete().eq('company_id', cid);
       } else {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
+          await supabase.from('sales_summary').delete().eq('company_id', cid);
           const { data: teams } = await supabase.from('sales_teams').select('id').eq('company_id', cid);
           const tIds = teams?.map(t => t.id) || [];
           if (tIds.length > 0) await supabase.from('sales_staff').delete().in('team_id', tIds);
