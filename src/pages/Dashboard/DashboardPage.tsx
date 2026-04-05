@@ -231,6 +231,8 @@ const DashboardPage: React.FC = () => {
     
     try {
       let data: DashboardData[] = [];
+      let levelTotalGoal = 0;
+      let levelTotalPerf = 0;
       
       if (!isTypeMode) {
         if (currentLevel === 0) {
@@ -244,6 +246,8 @@ const DashboardPage: React.FC = () => {
           data = (divisions || []).map(d => {
             const target = parseNum((targets || []).find((tg: any) => tg.entity_id === d.id)?.target_amount || 0);
             const divisionPerf = Number(perfMap.get(d.id) || 0);
+            levelTotalGoal += target;
+            levelTotalPerf += divisionPerf;
             
             const metrics = calcMetrics(divisionPerf, target, progressLimit);
 
@@ -272,6 +276,9 @@ const DashboardPage: React.FC = () => {
           data = (teams || []).map(t => {
             const teamTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === t.id)?.target_amount || 0);
             const teamPerf = Number(perfMap.get(t.id) || 0);
+            levelTotalGoal += teamTarget;
+            levelTotalPerf += teamPerf;
+
             const metrics = calcMetrics(teamPerf, teamTarget, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? teamPerf / workingDays.current : 0;
@@ -293,6 +300,9 @@ const DashboardPage: React.FC = () => {
           data = (staff || []).map(s => {
             const staffTarget = parseNum((targets || []).find((tg: any) => tg.entity_id === s.id)?.target_amount || 0);
             const staffPerf = Number(perfMap.get(s.id) || 0);
+            levelTotalGoal += staffTarget;
+            levelTotalPerf += staffPerf;
+
             const metrics = calcMetrics(staffPerf, staffTarget, progressLimit);
 
             const dailyAvg = workingDays.current > 0 ? staffPerf / workingDays.current : 0;
@@ -305,11 +315,56 @@ const DashboardPage: React.FC = () => {
         }
         else if (currentLevel === 3 && selectedIds.staffId) {
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId });
-          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
+          
+          let targets: any[] = [];
+          if (isYoyMode) {
+             const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+             const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+             const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId });
+             targets = lyPerf || [];
+          }
+
+          data = (perfData || []).map((p: any) => {
+             const perfVal = parseNum(p.total);
+             const target = isYoyMode ? parseNum((targets || []).find((tg: any) => tg.id === p.id)?.total || 0) : 0;
+             levelTotalPerf += perfVal;
+             levelTotalGoal += target;
+             const metrics = calcMetrics(perfVal, target, progressLimit);
+
+             return { 
+                id: p.id, name: p.id, 
+                goal: isYoyMode ? formatValue(target) : '-', 
+                performance: formatValue(perfVal), 
+                achieve: isYoyMode ? metrics.achieve.toFixed(1) : '100', 
+                gap: isYoyMode ? ((metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap)) : '-' 
+             };
+          });
         }
         else if (currentLevel === 4 && selectedIds.staffId && selectedIds.customerName) {
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'item_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'customer_name', p_filter_val2: selectedIds.customerName });
-          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
+          
+          let targets: any[] = [];
+          if (isYoyMode) {
+             const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+             const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+             const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'item_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'customer_name', p_filter_val2: selectedIds.customerName });
+             targets = lyPerf || [];
+          }
+
+          data = (perfData || []).map((p: any) => {
+             const perfVal = parseNum(p.total);
+             const target = isYoyMode ? parseNum((targets || []).find((tg: any) => tg.id === p.id)?.total || 0) : 0;
+             levelTotalPerf += perfVal;
+             levelTotalGoal += target;
+             const metrics = calcMetrics(perfVal, target, progressLimit);
+             return { 
+                 id: p.id, name: p.id, 
+                 goal: isYoyMode ? formatValue(target) : '-', 
+                 performance: formatValue(perfVal), 
+                 achieve: isYoyMode ? metrics.achieve.toFixed(1) : '100', 
+                 gap: isYoyMode ? ((metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap)) : '-' 
+             };
+          });
         }
       } else {
         // --- TYPE BASED MODE ---
@@ -324,6 +379,8 @@ const DashboardPage: React.FC = () => {
           data = (cats || []).filter(c => c.name && c.name !== '미분류').map(c => {
             const target = parseNum((targets || []).find((tg: any) => tg.entity_id === c.id)?.target_amount || 0);
             const catPerf = Number(perfMap.get(c.id) || 0);
+            levelTotalGoal += target;
+            levelTotalPerf += catPerf;
             
             const metrics = calcMetrics(catPerf, target, progressLimit);
 
@@ -340,21 +397,107 @@ const DashboardPage: React.FC = () => {
           const { data: staffList } = await supabase.from('sales_staff').select('id, name').order('display_order', { ascending: true });
           
           const perfMap = new Map((perfData || []).map((p: any) => [p.id, parseNum(p.total)]));
-          data = (staffList || []).filter(s => perfMap.has(s.id)).map(s => ({ id: s.id, name: s.name, goal: '-', performance: formatValue(Number(perfMap.get(s.id) || 0)), achieve: '100', gap: '-' }));
+          
+          let targets: any[] = [];
+          if (isYoyMode) {
+             const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+             const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+             const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'staff_id', p_filter_col: 'category_id', p_filter_val: selectedIds.categoryId });
+             targets = lyPerf || [];
+          }
+
+          data = (staffList || []).filter(s => perfMap.has(s.id)).map(s => {
+             const perfVal = Number(perfMap.get(s.id) || 0);
+             const target = isYoyMode ? parseNum((targets || []).find((tg: any) => tg.id === s.id)?.total || 0) : 0;
+             levelTotalPerf += perfVal;
+             levelTotalGoal += target;
+             const metrics = calcMetrics(perfVal, target, progressLimit);
+             return { 
+                 id: s.id, name: s.name, 
+                 goal: isYoyMode ? formatValue(target) : '-', 
+                 performance: formatValue(perfVal), 
+                 achieve: isYoyMode ? metrics.achieve.toFixed(1) : '100', 
+                 gap: isYoyMode ? ((metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap)) : '-' 
+             };
+          });
         }
         else if (currentLevel === 2 && selectedIds.staffId && selectedIds.categoryId) {
           const { data: perfData } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: startDate, p_end: endDate, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'category_id', p_filter_val2: selectedIds.categoryId });
-          data = (perfData || []).map((p: any) => ({ id: p.id, name: p.id, goal: '-', performance: formatValue(parseNum(p.total)), achieve: '100', gap: '-' }));
+          
+          let targets: any[] = [];
+          if (isYoyMode) {
+             const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+             const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+             const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'customer_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'category_id', p_filter_val2: selectedIds.categoryId });
+             targets = lyPerf || [];
+          }
+
+          data = (perfData || []).map((p: any) => {
+             const perfVal = parseNum(p.total);
+             const target = isYoyMode ? parseNum((targets || []).find((tg: any) => tg.id === p.id)?.total || 0) : 0;
+             levelTotalPerf += perfVal;
+             levelTotalGoal += target;
+             const metrics = calcMetrics(perfVal, target, progressLimit);
+             return { id: p.id, name: p.id, goal: isYoyMode ? formatValue(target) : '-', performance: formatValue(perfVal), achieve: isYoyMode ? metrics.achieve.toFixed(1) : '100', gap: isYoyMode ? ((metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap)) : '-' };
+          });
         }
         else if (currentLevel === 3 && selectedIds.staffId && selectedIds.categoryId && selectedIds.customerName) {
             const { data: perf } = await supabase.from('sales_records').select('amount, item_name').eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).gte('sales_date', startDate).lte('sales_date', endDate);
+            
+            let targets: Map<string, number> = new Map();
+            if (isYoyMode) {
+               const lyStart = format(new Date(year - 1, month - 1, 1), 'yyyy-MM-dd');
+               const lyEnd = format(new Date(year - 1, month, 0), 'yyyy-MM-dd');
+               const { data: lyPerf } = await supabase.rpc('get_group_perf_summary', { p_company_id: profile.company_id, p_start: lyStart, p_end: lyEnd, p_group_type: 'item_name', p_filter_col: 'staff_id', p_filter_val: selectedIds.staffId, p_filter_col2: 'customer_name', p_filter_val2: selectedIds.customerName });
+               (lyPerf || []).forEach((lp: any) => targets.set(lp.id, parseNum(lp.total)));
+            }
+
             const map = new Map<string, number>();
             (perf || []).forEach(p => map.set(p.item_name, (map.get(p.item_name) || 0) + parseNum(p.amount)));
-            data = Array.from(map.entries()).map(([name, amount]) => ({ id: name, name, goal: '-', performance: formatValue(amount), achieve: '100', gap: '-' }));
+            
+            data = Array.from(map.entries()).map(([name, amount]) => {
+                const target = isYoyMode ? (targets.get(name) || 0) : 0;
+                levelTotalPerf += amount;
+                levelTotalGoal += target;
+                const metrics = calcMetrics(amount, target, progressLimit);
+                return { id: name, name, goal: isYoyMode ? formatValue(target) : '-', performance: formatValue(amount), achieve: isYoyMode ? metrics.achieve.toFixed(1) : '100', gap: isYoyMode ? ((metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap)) : '-' };
+            });
         }
       }
 
       setDisplayData(data);
+
+      let noTargetMode = false;
+      if (!isYoyMode) {
+          if (!isTypeMode && currentLevel >= 3) noTargetMode = true;
+          if (isTypeMode && currentLevel >= 1) noTargetMode = true;
+      }
+
+      if (data.length > 0) {
+         const metrics = calcMetrics(levelTotalPerf, levelTotalGoal, progressLimit);
+         
+         let finalGoalStr = formatValue(levelTotalGoal);
+         let finalAchieveStr = metrics.achieve.toFixed(1);
+         let finalGapStr = (metrics.gap >= 0 && metrics.gap !== 0 ? '+' : '') + formatValue(metrics.gap);
+
+         if (noTargetMode) {
+             finalGoalStr = '-';
+             finalAchieveStr = '100';
+             finalGapStr = '-';
+         }
+
+         setSummaryData({
+           goal: finalGoalStr,
+           performance: formatValue(levelTotalPerf),
+           achievementRate: finalAchieveStr,
+           progressGap: finalGapStr,
+           originalGoalVal: levelTotalGoal,
+           originalPerfVal: levelTotalPerf
+         });
+      } else {
+         setSummaryData(prev => ({ ...prev, performance: '0', achievementRate: '0.0', progressGap: '0', originalPerfVal: 0 }));
+      }
+
     } catch (err) {
       console.error('Refresh Error:', err);
     } finally {
