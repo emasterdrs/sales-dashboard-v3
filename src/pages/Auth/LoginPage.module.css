@@ -136,11 +136,15 @@
 }
 
 .mainLogoTitle {
-  font-size: 32px;
+  font-size: 38px;
   font-weight: 900;
-  color: #1a202c;
-  letter-spacing: -2px;
-  margin: 0;
+  letter-spacing: -1.5px;
+  margin: 4px 0;
+  background: linear-gradient(135deg, #1a202c 0%, #4a5568 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
 }
 
 .tagline {
@@ -290,23 +294,25 @@
 }
 
 .miniSocialBtn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #edf2f7;
   background-color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .miniSocialBtn:hover {
   border-color: #cbd5e0;
-  background-color: #f7fafc;
-  transform: scale(1.1);
+  background-color: #f8fafc;
+  transform: translateY(-2px) scale(1.08);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .google:hover { border-color: #4285F4; background-color: #f1f7ff; }
