@@ -27,7 +27,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 64px 48px;
+  padding: 48px;
   overflow: hidden;
 }
 
@@ -62,19 +62,16 @@
   z-index: 2;
   color: white;
   margin-top: auto;
-  padding-bottom: 24px;
+  width: 100%;
 }
 
 .premiumTitle {
   font-size: 32px;
   font-weight: 800;
   margin-bottom: 8px;
-  letter-spacing: -1.5px;
-  background: linear-gradient(90deg, #fff, #f6ad55);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  letter-spacing: -1px;
+  color: white;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.6);
 }
 
 .subText {
@@ -136,15 +133,26 @@
 }
 
 .mainLogoTitle {
-  font-size: 38px;
+  font-size: 42px;
   font-weight: 900;
-  letter-spacing: -1.5px;
-  margin: 4px 0;
-  background: linear-gradient(135deg, #1a202c 0%, #4a5568 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+  letter-spacing: 10px;
+  padding-left: 10px; /* offset for tracking */
+  margin: 12px 0;
+  color: #1a202c;
+  text-transform: uppercase;
+  text-align: center;
+  position: relative;
+}
+
+.mainLogoTitle::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 2px;
+  background-color: #4299e1;
 }
 
 .tagline {
@@ -323,8 +331,7 @@
 .naver { background-color: #03C75A; border-color: #03C75A; }
 .naver:hover { background-color: #02b350; border-color: #02b350; }
 
-.apple { background-color: #000000; border-color: #000000; }
-.apple:hover { background-color: #222222; border-color: #222222; }
+
 
 .errorAlert {
   background-color: #fff5f5;
