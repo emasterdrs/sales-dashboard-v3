@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, X, Loader2, Database, AlertTriangle, Download, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileText, AlertCircle, X, Loader2, Database, AlertTriangle, Download, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,11 @@ interface UploadResult {
   errors: string[];
 }
 
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+}
+
 const DataUploadPage: React.FC = () => {
   const { profile, fetchProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,8 +31,21 @@ const DataUploadPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [orgMap, setOrgMap] = useState<any>({ divisions: {}, teamMap: {}, staffMap: {}, catMap: {} });
   const [resetConfirmation, setResetConfirmation] = useState('');
+  const [notification, setNotification] = useState<Notification | null>(null);
 
   useEffect(() => { fetchOrgInfo(); }, [profile?.company_id]);
+
+  // 알림 표시 후 3초 뒤 자동 삭제
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotify = (message: string, type: 'success' | 'error' = 'error') => {
+    setNotification({ message, type });
+  };
 
   const fetchAll = async (query: any) => {
       let all: any[] = [];
@@ -62,7 +80,6 @@ const DataUploadPage: React.FC = () => {
   };
 
   const downloadTemplate = (type: 'empty' | 'sample') => {
-    // 사용자가 제공한 이미지의 컬럼 순서와 명칭 반영
     const headers = [['날짜', '사업부', '팀', '성명', '거래처코드', '거래처', '품목코드', '품목', '매출액', '카테고리']];
     let data = [...headers];
     
@@ -79,7 +96,6 @@ const DataUploadPage: React.FC = () => {
   };
 
   const getColIndex = (headers: string[], aliases: string[]) => {
-    // 정확한 매칭을 우선순위로 하여 '거래처코드'와 '거래처'가 섞이지 않도록 함
     const exact = headers.findIndex(h => aliases.includes(String(h || '').trim()));
     if (exact !== -1) return exact;
     return headers.findIndex(h => aliases.some(a => String(h || '').trim().includes(a)));
@@ -94,7 +110,9 @@ const DataUploadPage: React.FC = () => {
   const startUpload = async () => {
     if (!profile?.company_id && fetchProfile) await fetchProfile();
     const cid = profile?.company_id;
-    if (!file || !cid) return alert('파일 또는 로그인 정보가 없습니다.');
+    
+    if (!file) return showNotify('업로드할 파일을 먼저 선택해 주세요.', 'error');
+    if (!cid) return showNotify('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.', 'error');
 
     setIsUploading(true);
     setResult(null);
@@ -107,23 +125,25 @@ const DataUploadPage: React.FC = () => {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
       
-      if (raw.length < 2) throw new Error("데이터가 부족합니다.");
+      if (raw.length < 2) {
+        throw new Error("업로드한 파일에 데이터가 없습니다. 내용을 확인해 주세요.");
+      }
+
       const headers = raw[0].map(h => String(h || ''));
       
-      // 인덱스 매핑 시 '거래처코드'를 제외한 순수 매칭 강화
       const idx = {
         date: getColIndex(headers, ['날짜', 'date']),
         div: getColIndex(headers, ['지점', '사업부', 'division']),
         team: getColIndex(headers, ['팀', '팀명', 'team']),
         name: getColIndex(headers, ['성명', '이름', 'name', 'staff']),
-        customer: getColIndex(headers, ['거래처']), // '거래처코드'와 섞이지 않도록 단어 정확히 지정
-        item: getColIndex(headers, ['품목']), // '품목코드'와 섞이지 않도록 단어 정확히 지정
+        customer: getColIndex(headers, ['거래처']),
+        item: getColIndex(headers, ['품목']),
         amount: getColIndex(headers, ['금액', '매출액', '매출', 'amount']),
         cat: getColIndex(headers, ['유형', '카테고리', 'category'])
       };
 
       if (idx.date === -1 || idx.name === -1 || idx.amount === -1) {
-        throw new Error("필수 컬럼(날짜, 성명, 매출액)을 찾을 수 없습니다.");
+        throw new Error("필수 항목(날짜, 성명, 매출액)이 누락되었습니다. 지정된 양식에 맞게 업로드해 주세요.");
       }
 
       const rows: any[] = [];
@@ -294,7 +314,6 @@ const DataUploadPage: React.FC = () => {
 
       let sc = 0; const CHUNK = 1000;
       const totalRecs = finalRecs.length;
-      const mergedCount = rows.length - totalRecs - skippedCount;
       if (totalRecs === 0 && rows.length > 0) throw new Error("유효한 실적 데이터가 없습니다. 사원 정보와 데이터 형식을 확인해주세요.");
 
       for (let i = 0; i < totalRecs; i += CHUNK) {
@@ -322,25 +341,30 @@ const DataUploadPage: React.FC = () => {
         await supabase.rpc('refresh_sales_summary', { p_company_id: cid, p_year: y, p_month: mm });
       }
 
-      setResult({ total: rows.length, success: sc, failed: totalRecs - sc + skippedCount, merged: mergedCount, errors: errList });
+      setResult({ total: rows.length, success: sc, failed: totalRecs - sc + skippedCount, merged: rows.length - totalRecs - skippedCount, errors: errList });
       setProgress(100);
       if (sc > 0) {
         setFile(null);
-        alert('매출 데이터 업로드가 완료되었습니다!');
+        showNotify('매출 데이터 업로드가 완료되었습니다!', 'success');
       }
-    } catch (e: any) { alert(e.message); } finally { setIsUploading(false); setProgress(0); }
+    } catch (e: any) { 
+      showNotify(e.message, 'error');
+    } finally { 
+      setIsUploading(false); 
+      setProgress(0); 
+    }
   };
 
   const handleReset = async () => {
     const cid = profile?.company_id;
-    if (!cid || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인이 필요합니다.');
+    if (!cid || resetConfirmation !== '데이터 초기화 확인') return showNotify('문구 확인이 필요합니다.', 'error');
     setIsResetting(true);
     try {
       if (resetType === 'data') {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
           await supabase.from('sales_summary').delete().eq('company_id', cid);
-          alert('영업 실적 및 목표 데이터가 초기화되었습니다.');
+          showNotify('영업 실적 및 목표 데이터가 초기화되었습니다.', 'success');
       } else {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
@@ -352,14 +376,22 @@ const DataUploadPage: React.FC = () => {
           await supabase.from('sales_divisions').delete().eq('company_id', cid);
           await supabase.from('product_categories').delete().eq('company_id', cid);
           fetchOrgInfo();
-          alert('조직 정보를 포함한 모든 데이터가 초기화되었습니다.');
+          showNotify('조직 정보를 포함한 모든 데이터가 초기화되었습니다.', 'success');
       }
       setResetType(null); setResetConfirmation('');
-    } catch (e: any) { alert(e.message); } finally { setIsResetting(false); }
+    } catch (e: any) { showNotify(e.message, 'error'); } finally { setIsResetting(false); }
   };
 
   return (
     <div className={`${styles.container} fade-in`}>
+      {/* 커스텀 알림 UI */}
+      {notification && (
+        <div className={`${styles.toast} ${styles[notification.type]}`}>
+          {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <span>{notification.message}</span>
+        </div>
+      )}
+
       <header className={styles.header}>
         <div className={styles.titleArea}>
           <div className={styles.iconWrapper}><Database size={24} /></div>
@@ -416,7 +448,7 @@ const DataUploadPage: React.FC = () => {
           </div>
         )}
 
-        <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
+        <button className={styles.uploadBtn} disabled={isUploading} onClick={startUpload}>
           {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : '매출 데이터 업로드 시작'}
         </button>
 
