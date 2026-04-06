@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Database as DatabaseIcon,
   GripVertical,
+  Zap,
 } from 'lucide-react';
 
 import { Link, useLocation } from 'react-router-dom';
@@ -190,6 +191,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
               </button>
             </div>
           </div>
+        </div>
+        <div className={styles.systemActions}>
+           <button className={styles.hardReloadBtn} onClick={() => window.location.reload()} title="최신 버전으로 강제 새로고침 (캐시 삭제)">
+             <Zap size={14} />
+             <span>시스템 즉시 새로고침</span>
+           </button>
         </div>
         <button className={styles.logoutButton} onClick={signOut}>
           <LogOut size={18} />

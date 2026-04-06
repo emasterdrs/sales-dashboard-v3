@@ -73,6 +73,34 @@
   letter-spacing: 2px;
 }
 
+.systemActions {
+  margin: 16px 0;
+  padding: 0 4px;
+}
+
+.hardReloadBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #3b82f6;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hardReloadBtn:hover {
+  background: #3b82f6;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+}
+
 .sidebarItem {
   display: flex;
   align-items: center;
