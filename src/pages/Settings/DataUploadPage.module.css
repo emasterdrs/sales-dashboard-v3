@@ -1,66 +1,28 @@
 .container {
+  padding: 32px;
   max-width: 1000px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem;
-  position: relative;
-}
-
-/* Toast 알림 스타일 */
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  border-radius: 12px;
-  color: white;
-  font-weight: 600;
-  font-size: 0.95rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  animation: slideDown 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-}
-
-.toast.success {
-  background: #10b981;
-}
-
-.toast.error {
-  background: #ef4444;
-}
-
-@keyframes slideDown {
-  from { top: -60px; opacity: 0; }
-  to { top: 24px; opacity: 1; }
 }
 
 .header {
-  margin-bottom: 2rem;
+  margin-bottom: 32px;
 }
 
 .titleArea {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 16px;
 }
 
 .iconWrapper {
-  width: 44px;
-  height: 44px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: #eff6ff;
+  color: #3b82f6;
+  padding: 12px;
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .title {
-  font-size: 1.75rem;
+  font-size: 24px;
   font-weight: 700;
   color: #1e293b;
   margin: 0;
@@ -68,66 +30,59 @@
 
 .uploadCard {
   background: white;
-  border-radius: 20px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
   border: 1px solid #f1f5f9;
-  margin-bottom: 2rem;
 }
 
-/* 업로드 영역 크기 축소 */
 .dropzone {
   border: 2px dashed #e2e8f0;
-  border-radius: 16px;
-  padding: 2.5rem 2rem;
+  border-radius: 20px;
+  padding: 48px;
   text-align: center;
-  transition: all 0.2s ease;
   cursor: pointer;
-  background: #f8fafc;
+  transition: all 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 16px;
 }
 
-.dropzone.isDragging {
+.dropzone:hover, .isDragging {
   border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.dropzone:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  background: #f0f7ff;
 }
 
 .dropzoneText p {
-  font-size: 1.1rem;
+  font-size: 18px;
   font-weight: 600;
   color: #334155;
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 4px 0;
 }
 
 .dropzoneText span {
-  font-size: 0.875rem;
-  color: #64748b;
+  font-size: 14px;
+  color: #94a3b8;
 }
 
 .fileInfo {
-  background: #f1f5f9;
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: 16px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
 }
 
 .fileName {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
   font-weight: 600;
-  color: #1e293b;
+  color: #475569;
 }
 
 .removeBtn {
@@ -135,107 +90,93 @@
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  padding: 8px;
+  border-radius: 100%;
 }
 
 .removeBtn:hover {
-  background: #e2e8f0;
+  background: #fee2e2;
   color: #ef4444;
 }
 
-/* 안내 정보 스타일 */
 .instructions {
+  margin: 32px 0;
+  padding: 24px;
   background: #f8fafc;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin: 1.5rem 0;
-  border-left: 4px solid #3b82f6;
+  border-radius: 16px;
 }
 
 .instructionTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin-top: 0;
-  margin-bottom: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 16px 0;
 }
 
 .instructionList {
-  list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 24px 0;
+  list-style: none;
 }
 
 .instructionItem {
-  font-size: 0.9rem;
-  color: #475569;
-  margin-bottom: 0.6rem;
-  position: relative;
-  padding-left: 1.25rem;
-  line-height: 1.5;
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .instructionItem::before {
   content: "•";
-  position: absolute;
-  left: 0;
   color: #3b82f6;
   font-weight: bold;
 }
 
-/* 양식 다운로드 도구 */
 .templateTools {
   display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #f1f5f9;
+  gap: 12px;
 }
 
 .templateBtn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  padding: 10px 18px;
   background: white;
   border: 1px solid #e2e8f0;
-  color: #475569;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .templateBtn:hover {
   border-color: #3b82f6;
   color: #3b82f6;
-  background: #f0f7ff;
 }
 
-/* 프로그레스 & 상태 */
 .progressArea {
-  margin: 1.5rem 0;
+  margin: 32px 0;
 }
 
 .progressBarWrapper {
   background: #f1f5f9;
-  border-radius: 10px;
-  height: 20px;
-  position: relative;
+  height: 24px;
+  border-radius: 12px;
   overflow: hidden;
+  position: relative;
 }
 
 .progressBar {
-  background: #3b82f6;
   height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
   transition: width 0.3s ease;
 }
 
@@ -244,38 +185,147 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.75rem;
+  font-size: 11px;
   font-weight: 700;
-  color: #1e293b;
+  color: #475569;
+  mix-blend-mode: multiply;
 }
 
-/* 업로드 버튼 */
 .uploadBtn {
   width: 100%;
-  padding: 1rem;
-  background: #2563eb;
+  padding: 16px;
+  background: #3b82f6;
   color: white;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 12px;
   transition: all 0.2s;
 }
 
 .uploadBtn:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
+  background: #2563eb;
+  transform: translateY(-2px);
 }
 
 .uploadBtn:disabled {
   background: #94a3b8;
   cursor: not-allowed;
 }
+
+.statsArea {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.statCard {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid #f1f5f9;
+}
+
+.statLabel {
+  font-size: 14px;
+  color: #64748b;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.tooltipIcon {
+  color: #94a3b8;
+  cursor: help;
+  display: flex;
+  align-items: center;
+}
+
+.mergeHelper {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.dangerZone {
+  margin-top: 48px;
+  padding: 32px;
+  background: #fff5f5;
+  border: 1px solid #fee2e2;
+  border-radius: 20px;
+}
+
+.dangerHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dangerTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #991b1b;
+  margin: 0;
+}
+
+.resetConfirmArea {
+  display: flex;
+  gap: 12px;
+}
+
+.resetInput {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.resetBtn {
+  padding: 12px 24px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resetBtn:disabled {
+  background: #fca5a5;
+  cursor: not-allowed;
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+.success { background: #10b981; }
+.error { background: #ef4444; }
 
 .animateSpin {
   animation: spin 1s linear infinite;
@@ -286,159 +336,7 @@
   to { transform: rotate(360deg); }
 }
 
-/* 결과 통계 */
-.statsArea {
-  display: flex;
-  gap: 1rem;
-}
-
-.statCard {
-  flex: 1;
-  background: white;
-  border: 1px solid #f1f5f9;
-  padding: 1rem;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.statLabel {
-  display: block;
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-bottom: 0.25rem;
-}
-
-.statValue {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.errorArea {
-  background: #fff1f2;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-top: 1.5rem;
-}
-
-.errorTitle {
-  background: #fecaca;
-  padding: 0.75rem 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #991b1b;
-}
-
-.errorTitle h4 {
-  margin: 0;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.errorList {
-  padding: 1rem 1.25rem;
-  margin: 0;
-  list-style: none;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.errorList li {
-  color: #991b1b;
-  font-size: 0.8rem;
-  margin-bottom: 0.4rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid #fee2e2;
-}
-
-/* 위험 구역 강화 */
-.dangerZone {
-  background: #fffafa;
-  border: 1px solid #fee2e2;
-  border-radius: 20px;
-  padding: 2rem;
-}
-
-.dangerHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.dangerTitle {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #dc2626;
-  margin: 0;
-}
-
-.dangerDesc {
-  font-size: 0.9rem;
-  color: #7f1d1d;
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
-}
-
-.resetOptions {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.resetOptionBtn {
-  flex: 1;
-  padding: 0.875rem;
-  border-radius: 10px;
-  font-weight: 600;
-  border: 1px solid #fecaca;
-  background: white;
-  color: #dc2626;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.resetOptionBtn.active {
-  background: #dc2626;
-  color: white;
-  border-color: #dc2626;
-}
-
-.resetConfirmArea {
-  background: white;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.resetInput {
-  padding: 0.75rem 1rem;
-  border: 1px solid #fed7d7;
-  border-radius: 8px;
-  font-size: 0.95rem;
-}
-
-.resetBtn {
-  padding: 1rem;
-  background: #dc2626;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.resetBtn:hover:not(:disabled) {
-  background: #b91c1c;
-}
-
-.resetBtn:disabled {
-  background: #fca5a5;
-  cursor: not-allowed;
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
