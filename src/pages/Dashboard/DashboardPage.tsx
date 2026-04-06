@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   XAxis, YAxis, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { 
-  Building2, 
-  Layers,
-  TrendingUp,
-  Target,
-  History,
-  Calendar,
-  Zap,
-  Maximize2
+  Building2, Layers, TrendingUp, Target, History, Calendar, Zap, Maximize2, Search, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,14 +22,30 @@ interface DashboardData {
   expectedPerformance?: string;
 }
 
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+}
+
 const DashboardPage: React.FC = () => {
   const { profile } = useAuth();
   const [viewMode, setViewMode] = useState<'TEAM' | 'TYPE'>('TEAM');
   const [analysisMode, setAnalysisMode] = useState<'GOAL' | 'YOY' | 'MOM' | 'YTD'>('GOAL');
   
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [unit, setUnit] = useState<'won' | 'million' | 'billion'>('billion');
+  // 1. 실제 쿼리에 사용될 '확정된' 상태
+  const [queryState, setQueryState] = useState({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    unit: 'billion' as 'won' | 'million' | 'billion'
+  });
+
+  // 2. 드롭다운에서 선택 중인 '임시' 상태
+  const [tempState, setTempState] = useState({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    unit: 'billion' as 'won' | 'million' | 'billion'
+  });
+
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string; level: number }[]>([]);
   const [currentLevel, setCurrentLevel] = useState(0); 
   const [selectedIds, setSelectedIds] = useState<{ 
@@ -47,16 +56,9 @@ const DashboardPage: React.FC = () => {
     categoryId?: string 
   }>({});
 
-  const [workingDays, setWorkingDays] = useState({ total: 21, current: 13 });
+  const [workingDays, setWorkingDays] = useState({ total: 20, current: 0 });
   const [summaryMetrics, setSummaryMetrics] = useState({
-    achievement: 0,
-    growthYoY: 0,
-    progressGap: 0,
-    expectedTotal: 0,
-    ytdPerf: 0,
-    totalGoal: 0,
-    totalPerf: 0,
-    totalLyPerf: 0
+    achievement: 0, growthYoY: 0, progressGap: 0, expectedTotal: 0, ytdPerf: 0, totalGoal: 0, totalPerf: 0, totalLyPerf: 0
   });
 
   const [trendData, setTrendData] = useState<any[]>([]);
@@ -64,75 +66,62 @@ const DashboardPage: React.FC = () => {
   const [displayData, setDisplayData] = useState<DashboardData[]>([]);
   const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [notification, setNotification] = useState<Notification | null>(null);
+
+  const showNotify = (message: string, type: 'success' | 'error' = 'error') => {
+    setNotification({ message, type });
+  };
 
   const parseNum = (val: any): number => {
     if (!val) return 0;
-    if (typeof val === 'string') {
-      const num = parseFloat(val.replace(/,/g, ''));
-      return isNaN(num) ? 0 : num;
-    }
-    return isNaN(Number(val)) ? 0 : Number(val);
+    const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : Number(val);
+    return isNaN(num) ? 0 : num;
   };
-
-  useEffect(() => {
-    setCurrentLevel(0);
-    setBreadcrumbs([]);
-    setSelectedIds({});
-  }, [viewMode, year, month]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadAll = async () => {
-      setIsLoading(true);
-      await Promise.all([
-        initDashboard(),
-        refreshDrillDownData()
-      ]);
-      if (isMounted) setIsLoading(false);
-    };
-    loadAll();
-    return () => { isMounted = false; };
-  }, [currentLevel, selectedIds, profile?.company_id, year, month, unit, viewMode, analysisMode]);
 
   const formatValue = (val: number) => {
     const num = Number(val);
-    if (unit === 'billion') return (num / 100000000).toFixed(1);
-    if (unit === 'million') return (num / 1000000).toLocaleString();
+    if (queryState.unit === 'billion') return (num / 100000000).toFixed(1);
+    if (queryState.unit === 'million') return (num / 1000000).toLocaleString();
     return num.toLocaleString();
   };
 
   const getUnitName = () => {
-    if (unit === 'billion') return '억원';
-    if (unit === 'million') return '백만원';
+    if (queryState.unit === 'billion') return '억원';
+    if (queryState.unit === 'million') return '백만원';
     return '원';
   };
 
-  const initDashboard = async () => {
+  // ✅ 데이터 핵심 로딩 함수 (조회 버튼 클릭 시 실행)
+  const loadDashboardData = useCallback(async () => {
     if (!profile?.company_id) return;
+    setIsLoading(true);
     try {
-      // 1. Fetch Company Total Summary
-      const { data: summaryRows } = await supabase
+      // 1. Company Global Summary (sales_summary 기반)
+      const { data: summaryRows, error: summaryErr } = await supabase
         .from('sales_summary')
         .select('*')
         .eq('company_id', profile.company_id)
-        .eq('year', year)
-        .eq('month', month)
+        .eq('year', queryState.year)
+        .eq('month', queryState.month)
         .is('division_id', null)
         .is('category_id', null);
 
+      if (summaryErr) throw summaryErr;
+      console.log("📊 [VODA 대시보드] 수신된 요약 데이터:", summaryRows);
+      
       const summary = summaryRows?.[0];
 
-      // 2. Load Working Days Context (406 에러 방지를 위해 .single() 제거 후 배열의 첫 요소 사용)
-      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month);
+      // 2. 영업일수 로드
+      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month);
       const wd = wdList?.[0];
       const holidaysObj = wd?.holidays || [];
       const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
-      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(year, month, parsedHolidays);
-      const currentWD = SalesCalendarService.getElapsedWorkingDays(year, month, new Date(), parsedHolidays);
+      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(queryState.year, queryState.month, parsedHolidays);
+      const currentWD = SalesCalendarService.getElapsedWorkingDays(queryState.year, queryState.month, new Date(), parsedHolidays);
       setWorkingDays({ total: totalWD, current: currentWD }); 
       const progressLimit = totalWD > 0 ? (currentWD / totalWD) : 0;
 
-      // 3. Set Global Summary Metrics
+      // 3. 메트릭 설정
       const perf = parseNum(summary?.performance || 0);
       const goal = parseNum(summary?.goal || 0);
       const lyPerf = parseNum(summary?.ly_performance || 0);
@@ -149,26 +138,32 @@ const DashboardPage: React.FC = () => {
         totalLyPerf: lyPerf
       });
 
-      // 4. Trend Data
-      const { data: yTrend } = await supabase
+      // 4. 추이 차트
+      const { data: trendRows } = await supabase
         .from('sales_summary')
         .select('month, performance')
         .eq('company_id', profile.company_id)
-        .eq('year', year)
+        .eq('year', queryState.year)
         .is('division_id', null)
         .is('category_id', null)
         .order('month', { ascending: true });
 
       const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
-      (yTrend || []).forEach((t: any) => {
-          if (t.month >= 1 && t.month <= 12) {
-              monthMap[t.month - 1].performance = Number(formatValue(t.performance));
-          }
+      (trendRows || []).forEach((t: any) => {
+          if (t.month >= 1 && t.month <= 12) monthMap[t.month - 1].performance = Number(formatValue(t.performance));
       });
       setTrendData(monthMap);
 
-    } catch (err) { console.error('Init Error:', err); }
-  };
+      // 5. 상세/드릴다운 데이터 로드
+      await refreshDrillDownData();
+
+    } catch (err: any) {
+      console.error('❌ [VODA 대시보드] 로딩 에러:', err);
+      showNotify(`데이터 로딩 중 오류: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [profile?.company_id, queryState, viewMode, analysisMode, currentLevel, selectedIds]);
 
   const refreshDrillDownData = async () => {
     if (!profile?.company_id) return;
@@ -176,8 +171,8 @@ const DashboardPage: React.FC = () => {
       let query = supabase.from('sales_summary')
         .select('*')
         .eq('company_id', profile.company_id)
-        .eq('year', year)
-        .eq('month', month);
+        .eq('year', queryState.year)
+        .eq('month', queryState.month);
 
       if (viewMode === 'TEAM') {
         if (currentLevel === 0) query = query.not('division_id', 'is', null).is('team_id', null);
@@ -192,35 +187,26 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 3) query = query.eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).not('item_name', 'is', null);
       }
 
-      const { data: summaryDataList, error } = await query;
+      const { data: rawList, error } = await query;
       if (error) throw error;
+      console.log(`📋 [VODA 드릴다운] Level ${currentLevel} 데이터 수신:`, rawList);
 
-      // Fetch Names for Display
-      const namesMap = new Map<string, string>();
+      // 이름 매핑을 위해 각 테이블 조회 (Left Join 효과)
+      let nameTable = 'sales_divisions';
       if (viewMode === 'TEAM') {
-        if (currentLevel === 0) {
-          const { data } = await supabase.from('sales_divisions').select('id, name');
-          data?.forEach(d => namesMap.set(d.id, d.name));
-        } else if (currentLevel === 1) {
-          const { data } = await supabase.from('sales_teams').select('id, name');
-          data?.forEach(t => namesMap.set(t.id, t.name));
-        } else if (currentLevel === 2) {
-          const { data } = await supabase.from('sales_staff').select('id, name');
-          data?.forEach(s => namesMap.set(s.id, s.name));
-        }
+        if (currentLevel === 1) nameTable = 'sales_teams';
+        else if (currentLevel === 2) nameTable = 'sales_staff';
       } else {
-         if (currentLevel === 0) {
-           const { data } = await supabase.from('product_categories').select('id, name');
-           data?.forEach(c => namesMap.set(c.id, c.name));
-         } else if (currentLevel === 1) {
-           const { data } = await supabase.from('sales_staff').select('id, name');
-           data?.forEach(s => namesMap.set(s.id, s.name));
-         }
+        if (currentLevel === 0) nameTable = 'product_categories';
+        else if (currentLevel === 1) nameTable = 'sales_staff';
       }
 
-      const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
+      const { data: nameData } = await supabase.from(nameTable).select('id, name');
+      const namesMap = new Map<string, string>();
+      nameData?.forEach(n => namesMap.set(n.id, n.name));
 
-      const formattedData: DashboardData[] = (summaryDataList || []).map(s => {
+      const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
+      const formatted: DashboardData[] = (rawList || []).map(s => {
         const perfVal = parseNum(s.performance);
         let compareVal = 0;
         if (analysisMode === 'GOAL') compareVal = parseNum(s.goal);
@@ -228,96 +214,71 @@ const DashboardPage: React.FC = () => {
         else if (analysisMode === 'MOM') compareVal = parseNum(s.prev_performance);
         else if (analysisMode === 'YTD') compareVal = parseNum(s.ytd_performance);
         
-        let name = '';
-        if (viewMode === 'TEAM') {
-          if (currentLevel === 0) name = namesMap.get(s.division_id) || '알수없음';
-          else if (currentLevel === 1) name = namesMap.get(s.team_id) || '알수없음';
-          else if (currentLevel === 2) name = namesMap.get(s.staff_id) || '알수없음';
-          else if (currentLevel === 3) name = s.customer_name || '알수없음';
-          else if (currentLevel === 4) name = s.item_name || '알수없음';
-        } else {
-            if (currentLevel === 0) name = namesMap.get(s.category_id) || '알수없음';
-            else if (currentLevel === 1) name = namesMap.get(s.staff_id) || '알수없음';
-            else if (currentLevel === 2) name = s.customer_name || '알수없음';
-            else if (currentLevel === 3) name = s.item_name || '알수없음';
-        }
+        let name = '미분류/누락';
+        const targetId = viewMode === 'TEAM' ? (currentLevel === 0 ? s.division_id : (currentLevel === 1 ? s.team_id : s.staff_id)) : (currentLevel === 0 ? s.category_id : s.staff_id);
+        
+        if (currentLevel >= (viewMode === 'TEAM' ? 3 : 2)) name = s.customer_name || s.item_name || '알수없음';
+        else name = namesMap.get(targetId) || '기준정보누락';
 
-        const metrics = { achieve: compareVal > 0 ? (perfVal / compareVal) * 100 : 0, gap: perfVal - compareVal };
-        if (analysisMode === 'GOAL') metrics.gap = perfVal - (compareVal * progressLimit);
-
-        const expected = parseNum(s.expected_performance);
+        const achieveRate = compareVal > 0 ? (perfVal / compareVal) * 100 : 0;
+        let gapVal = perfVal - compareVal;
+        if (analysisMode === 'GOAL') gapVal = perfVal - (compareVal * progressLimit);
 
         return {
-          id: s.division_id || s.team_id || s.staff_id || s.customer_name || s.item_name,
+          id: targetId || s.customer_name || s.item_name,
           name,
           goal: formatValue(compareVal),
           performance: formatValue(perfVal),
-          achieve: metrics.achieve.toFixed(1),
-          gap: (metrics.gap >= 0 ? '+' : '') + formatValue(metrics.gap),
-          expectedPerformance: formatValue(expected)
+          achieve: achieveRate.toFixed(1),
+          gap: (gapVal >= 0 ? '+' : '') + formatValue(gapVal),
+          expectedPerformance: formatValue(parseNum(s.expected_performance))
         };
       });
 
-      setDisplayData(formattedData);
-      setPieData(formattedData.slice(0, 10).map(d => ({ name: d.name, value: parseNum(d.performance) })));
-
-    } catch (err) { console.error('Refresh Error:', err); }
-  };
-
-  const getLabelByLevel = (level: number) => {
-    if (viewMode === 'TYPE') {
-        switch(level) {
-            case 0: return '제품유형';
-            case 1: return '영업사원';
-            case 2: return '거래처';
-            case 3: return '품목';
-            default: return '제품유형';
-        }
-    }
-    switch(level) {
-      case 0: return '사업부';
-      case 1: return '영업팀';
-      case 2: return '영업사원';
-      case 3: return '거래처';
-      case 4: return '품목';
-      default: return '사업부';
+      setDisplayData(formatted);
+      setPieData(formatted.slice(0, 10).map(d => ({ name: d.name, value: parseNum(d.performance) })));
+    } catch (e: any) {
+       showNotify(`연관 데이터 조회 실패: ${e.message}`, 'error');
     }
   };
 
-  const getCompareLabel = () => {
-    switch(analysisMode) {
-      case 'GOAL': return '목표액';
-      case 'YOY': return '전년동월';
-      case 'MOM': return '전월실적';
-      case 'YTD': return '연간누계';
-      default: return '기준액';
-    }
+  // 초기 렌더링 시 자동 1회 조회
+  useEffect(() => {
+    loadDashboardData();
+  }, [profile?.company_id]);
+
+  // 분석 모드나 뷰 모드 바뀔 때는 자동 조회 (편의성)
+  useEffect(() => {
+    loadDashboardData();
+  }, [viewMode, analysisMode, currentLevel, selectedIds]);
+
+  // [조회] 버튼 클릭 핸들러
+  const handleSearchCommit = () => {
+    setQueryState({ ...tempState });
+    // setQueryState가 완료된 후 loadDashboardData가 useEffect에 의해 실행되거나 직접 호출
   };
 
-  const columns = [
-    { key: 'name', label: getLabelByLevel(currentLevel), width: '30%' },
-    { key: 'goal', label: getCompareLabel(), width: '15%' },
-    { key: 'performance', label: '당월실적', width: '15%' },
-    { key: 'achieve', label: '달성/성장률', width: '15%' },
-    { key: 'gap', label: 'GAP/성장액', width: '15%' },
-  ];
-
-  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#4f46e5', '#7c3aed'];
+  // queryState가 바뀔 때만 데이터를 부름
+  useEffect(() => {
+    loadDashboardData();
+  }, [queryState]);
 
   const handleRowClick = (id: string, name: string) => {
-    const maxLevel = viewMode === 'TYPE' ? 3 : 4;
-    if (currentLevel < maxLevel) {
+    const max = viewMode === 'TYPE' ? 3 : 4;
+    if (currentLevel < max) {
       setBreadcrumbs([...breadcrumbs, { id, name, level: currentLevel }]);
+      const newIds = { ...selectedIds };
       if (viewMode === 'TYPE') {
-          if (currentLevel === 0) setSelectedIds({ ...selectedIds, categoryId: id });
-          else if (currentLevel === 1) setSelectedIds({ ...selectedIds, staffId: id });
-          else if (currentLevel === 2) setSelectedIds({ ...selectedIds, customerName: name });
+          if (currentLevel === 0) newIds.categoryId = id;
+          else if (currentLevel === 1) newIds.staffId = id;
+          else if (currentLevel === 2) newIds.customerName = name;
       } else {
-          if (currentLevel === 0) setSelectedIds({ ...selectedIds, divisionId: id });
-          else if (currentLevel === 1) setSelectedIds({ ...selectedIds, teamId: id });
-          else if (currentLevel === 2) setSelectedIds({ ...selectedIds, staffId: id });
-          else if (currentLevel === 3) setSelectedIds({ ...selectedIds, customerName: name });
+          if (currentLevel === 0) newIds.divisionId = id;
+          else if (currentLevel === 1) newIds.teamId = id;
+          else if (currentLevel === 2) newIds.staffId = id;
+          else if (currentLevel === 3) newIds.customerName = name;
       }
+      setSelectedIds(newIds);
       setCurrentLevel(currentLevel + 1);
     }
   };
@@ -325,8 +286,7 @@ const DashboardPage: React.FC = () => {
   const handleBreadcrumbClick = (idx: number) => {
     if (idx === -1) { setBreadcrumbs([]); setSelectedIds({}); setCurrentLevel(0); } 
     else {
-      const targetBcs = breadcrumbs.slice(0, idx + 1);
-      setBreadcrumbs(targetBcs);
+      setBreadcrumbs(breadcrumbs.slice(0, idx + 1));
       setCurrentLevel(idx + 1);
       const newIds: any = {};
       if (viewMode === 'TYPE') {
@@ -343,150 +303,122 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const getLabelByLevel = (l: number) => {
+    if (viewMode === 'TYPE') return ['제품유형', '영업사원', '거래처', '품목'][l] || '분류';
+    return ['사업부', '영업팀', '영업사원', '거래처', '품목'][l] || '조직';
+  };
+
+  const getCompareLabel = () => ({ GOAL:'목표액', YOY:'전년동월', MOM:'전월실적' , YTD:'연간누계' }[analysisMode] || '기준액');
+  const columns = [
+    { key: 'name', label: getLabelByLevel(currentLevel), width: '30%' },
+    { key: 'goal', label: getCompareLabel(), width: '15%' },
+    { key: 'performance', label: '당월실적', width: '15%' },
+    { key: 'achieve', label: '달성/성장률', width: '15%' },
+    { key: 'gap', label: 'GAP/성장액', width: '15%' },
+  ];
+  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#4f46e5', '#7c3aed'];
+
   return (
     <div className={`${styles.page} fade-in`}>
-      {/* 🚀 Unified Control Tower */}
+      {notification && (
+        <div className={`${styles.toast} ${styles[notification.type]}`}>
+          {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span>{notification.message}</span>
+        </div>
+      )}
+
       <header className={styles.controlTower}>
         <div className={styles.leftGroup}>
            <div className={styles.mainTitleArea}>
              <h1>Sales Intelligence</h1>
-             <p>{year}년 {month}월 통합 분석 리포트</p>
+             <p>{queryState.year}년 {queryState.month}월 통합 분석 리포트</p>
            </div>
-           
            <div className={styles.viewSwitcher}>
-             <button className={`${styles.switchBtn} ${viewMode === 'TEAM' ? styles.active : ''}`} onClick={() => setViewMode('TEAM')}>
-               <Building2 size={16} /> <span>조직별</span>
-             </button>
-             <button className={`${styles.switchBtn} ${viewMode === 'TYPE' ? styles.active : ''}`} onClick={() => setViewMode('TYPE')}>
-               <Layers size={16} /> <span>제품별</span>
-             </button>
+             <button className={`${styles.switchBtn} ${viewMode === 'TEAM' ? styles.active : ''}`} onClick={() => setViewMode('TEAM')}><Building2 size={16} /> <span>조직별</span></button>
+             <button className={`${styles.switchBtn} ${viewMode === 'TYPE' ? styles.active : ''}`} onClick={() => setViewMode('TYPE')}><Layers size={16} /> <span>제품별</span></button>
            </div>
         </div>
 
         <div className={styles.rightGroup}>
            <div className={styles.analysisTabs}>
-             {[
-               { id: 'GOAL', label: '목표대비', icon: <Target size={14}/> },
-               { id: 'YOY', label: '전년대비', icon: <History size={14}/> },
-               { id: 'MOM', label: '전월대비', icon: <TrendingUp size={14}/> },
-               { id: 'YTD', label: '연간누계', icon: <Calendar size={14}/> }
-             ].map(t => (
-               <button key={t.id} className={`${styles.tabBtn} ${analysisMode === t.id ? styles.active : ''}`} onClick={() => setAnalysisMode(t.id as any)}>
-                 {t.icon} <span>{t.label}</span>
-               </button>
+             {[ {id:'GOAL', label:'목표대비', icon:<Target size={14}/>}, {id:'YOY', label:'전년대비', icon:<History size={14}/>}, {id:'MOM', label:'전월대비', icon:<TrendingUp size={14}/>}, {id:'YTD', label:'연간누계', icon:<Calendar size={14}/>} ].map(t => (
+               <button key={t.id} className={`${styles.tabBtn} ${analysisMode === t.id ? styles.active : ''}`} onClick={() => setAnalysisMode(t.id as any)}>{t.icon} <span>{t.label}</span></button>
              ))}
            </div>
-
-           <div className={styles.datePicker}>
-              <select value={year} onChange={e => setYear(Number(e.target.value))}>
-                {[2026, 2025, 2024, 2023, 2022].map(y => <option key={y} value={y}>{y}년</option>)}
-              </select>
-              <select value={month} onChange={e => setMonth(Number(e.target.value))}>
-                {Array.from({length: 12}, (_, i) => i+1).map(m => <option key={m} value={m}>{m}월</option>)}
-              </select>
-           </div>
            
-           <div className={styles.unitToggle}>
-              <select value={unit} onChange={e => setUnit(e.target.value as any)}>
-                <option value="billion">억원</option>
-                <option value="million">백만원</option>
-                <option value="won">원</option>
-              </select>
+           <div className={styles.filterSection}>
+             <div className={styles.datePicker}>
+                <select value={tempState.year} onChange={e => setTempState({...tempState, year: Number(e.target.value)})}>
+                  {[2026, 2025, 2024, 2023].map(y => <option key={y} value={y}>{y}년</option>)}
+                </select>
+                <select value={tempState.month} onChange={e => setTempState({...tempState, month: Number(e.target.value)})}>
+                  {Array.from({length: 12}, (_, i) => i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                </select>
+             </div>
+             <div className={styles.unitToggle}>
+                <select value={tempState.unit} onChange={e => setTempState({...tempState, unit: e.target.value as any})}>
+                  <option value="billion">억원</option>
+                  <option value="million">백만원</option>
+                  <option value="won">원</option>
+                </select>
+             </div>
+             <button className={styles.searchBtn} onClick={handleSearchCommit} disabled={isLoading}>
+                {isLoading ? <Loader2 className={styles.spin} size={16}/> : <Search size={16}/>}
+                <span>조회</span>
+             </button>
            </div>
         </div>
       </header>
 
-      {/* 📊 Summary Cards (Always 4 Fixed) */}
+      {/* Summary / Charts / Grid... (이후 로직 위와 동일) */}
       <div className={styles.summaryGrid}>
          <div className={styles.sumCard}>
-            <div className={styles.cardInfo}>
-              <span className={styles.cardLabel}>현재 달성률</span>
-              <h3 className={styles.cardValue}>{summaryMetrics.achievement.toFixed(1)}%</h3>
-              <p className={styles.cardSub}>목표: {formatValue(summaryMetrics.totalGoal)} {getUnitName()}</p>
-            </div>
+            <div className={styles.cardInfo}><span className={styles.cardLabel}>현재 달성률</span><h3 className={styles.cardValue}>{summaryMetrics.achievement.toFixed(1)}%</h3><p className={styles.cardSub}>목표: {formatValue(summaryMetrics.totalGoal)} {getUnitName()}</p></div>
             <div className={styles.cardIcon} style={{background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1'}}><Target size={24}/></div>
          </div>
          <div className={styles.sumCard}>
-            <div className={styles.cardInfo}>
-              <span className={styles.cardLabel}>성장률 (YoY)</span>
-              <h3 className={styles.cardValue} style={{color: summaryMetrics.growthYoY >= 0 ? '#10b981' : '#f43f5e'}}>
-                {summaryMetrics.growthYoY >= 0 ? '+' : ''}{summaryMetrics.growthYoY.toFixed(1)}%
-              </h3>
-              <p className={styles.cardSub}>전년: {formatValue(summaryMetrics.totalLyPerf)} {getUnitName()}</p>
-            </div>
+            <div className={styles.cardInfo}><span className={styles.cardLabel}>전년비 성장</span><h3 className={styles.cardValue} style={{color: summaryMetrics.growthYoY >= 0 ? '#10b981' : '#f43f5e'}}>{summaryMetrics.growthYoY >= 0 ? '+' : ''}{summaryMetrics.growthYoY.toFixed(1)}%</h3><p className={styles.cardSub}>전년: {formatValue(summaryMetrics.totalLyPerf)} {getUnitName()}</p></div>
             <div className={styles.cardIcon} style={{background: 'rgba(16, 185, 129, 0.1)', color: '#10b981'}}><TrendingUp size={24}/></div>
          </div>
          <div className={styles.sumCard}>
-            <div className={styles.cardInfo}>
-              <span className={styles.cardLabel}>진도율 GAP</span>
-              <h3 className={styles.cardValue} style={{color: summaryMetrics.progressGap >= 0 ? '#10b981' : '#f43f5e'}}>
-                {summaryMetrics.progressGap >= 0 ? '+' : ''}{formatValue(summaryMetrics.progressGap)}
-              </h3>
-              <p className={styles.cardSub}>진도율: {((workingDays.current / workingDays.total) * 100).toFixed(1)}%</p>
-            </div>
+            <div className={styles.cardInfo}><span className={styles.cardLabel}>진도율 GAP</span><h3 className={styles.cardValue} style={{color: summaryMetrics.progressGap >= 0 ? '#10b981' : '#f43f5e'}}>{summaryMetrics.progressGap >= 0 ? '+' : ''}{formatValue(summaryMetrics.progressGap)}</h3><p className={styles.cardSub}>진도율: {((workingDays.current / (workingDays.total||1)) * 100).toFixed(1)}%</p></div>
             <div className={styles.cardIcon} style={{background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899'}}><Zap size={24}/></div>
          </div>
          <div className={styles.sumCard}>
-            <div className={styles.cardInfo}>
-              <div style={{display:'flex', alignItems:'center', gap:8}}>
-                <span className={styles.cardLabel}>예상 마감액</span>
-                <button className={`${styles.expToggle} ${isExpectedClosingOn ? styles.on : ''}`} onClick={() => setIsExpectedClosingOn(!isExpectedClosingOn)}><Maximize2 size={12}/></button>
-              </div>
-              <h3 className={styles.cardValue}>{formatValue(summaryMetrics.expectedTotal)}</h3>
-              <p className={styles.cardSub}>잔여일수: {workingDays.total - workingDays.current}일</p>
-            </div>
+            <div className={styles.cardInfo}><div style={{display:'flex', alignItems:'center', gap:8}}><span className={styles.cardLabel}>예상 마감액</span><button className={`${styles.expToggle} ${isExpectedClosingOn ? styles.on : ''}`} onClick={() => setIsExpectedClosingOn(!isExpectedClosingOn)}><Maximize2 size={12}/></button></div><h3 className={styles.cardValue}>{formatValue(summaryMetrics.expectedTotal)}</h3><p className={styles.cardSub}>잔여일수: {Math.max(0, workingDays.total - workingDays.current)}일</p></div>
             <div className={styles.cardIcon} style={{background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b'}}><Building2 size={24}/></div>
          </div>
       </div>
 
-      {/* 📈 Hybrid Visual Analysis */}
       <div className={styles.visualAnalysis}>
          <div className={styles.chartBox}>
             <div className={styles.chartHeader}><h3>{viewMode === 'TEAM' ? '사업부별 비중' : '제품유형별 비중'}</h3></div>
             <div className={styles.chartInner}>
                <ResponsiveContainer width="100%" height={300}>
-                 <PieChart>
-                   <Pie data={pieData} innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-                     {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                   </Pie>
-                   <Tooltip />
-                   <Legend verticalAlign="bottom" height={36}/>
-                 </PieChart>
+                 <PieChart><Pie data={pieData} innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">{pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip /><Legend verticalAlign="bottom" height={36}/></PieChart>
                </ResponsiveContainer>
             </div>
          </div>
          <div className={styles.chartBox} style={{flex: 1.5}}>
-            <div className={styles.chartHeader}><h3>월별 실적 추이</h3></div>
+            <div className={styles.chartHeader}><h3>월별 실적 추이 ({queryState.year}년)</h3></div>
             <div className={styles.chartInner}>
                <ResponsiveContainer width="100%" height={300}>
-                 <AreaChart data={trendData}>
-                   <defs>
-                     <linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient>
-                   </defs>
-                   <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                   <Tooltip />
-                   <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" />
-                 </AreaChart>
+                 <AreaChart data={trendData}><defs><linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} /><YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} /><Tooltip /><Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerf)" /></AreaChart>
                </ResponsiveContainer>
             </div>
          </div>
       </div>
 
-      {/* 📋 Detail Grid */}
       <div className={styles.gridSection}>
-          <DrillDownTable 
-            breadcrumbs={breadcrumbs}
-            onBreadcrumbClick={handleBreadcrumbClick}
-            data={displayData}
-            onRowClick={handleRowClick}
-            columns={columns}
-            isExpectedClosingOn={isExpectedClosingOn}
-          />
-          {isLoading && <div className={styles.loader}>데이터 동기화 중...</div>}
+          <DrillDownTable breadcrumbs={breadcrumbs} onBreadcrumbClick={handleBreadcrumbClick} data={displayData} onRowClick={handleRowClick} columns={columns} isExpectedClosingOn={isExpectedClosingOn} />
+          {isLoading && <div className={styles.loaderArea}><Loader2 className={styles.spin} /> 데이터 분석 중...</div>}
       </div>
     </div>
   );
 };
+
+const Loader2: React.FC<any> = ({ className, size = 20 }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+);
 
 export default DashboardPage;
