@@ -21,18 +21,26 @@ self.onmessage = async (e: MessageEvent) => {
       range: { s: { r: fullRange.s.r, c: fullRange.s.c }, e: { r: scanLimit, c: fullRange.e.c } } 
     }) as any[][]);
 
-    // 디버깅용: 상단 5행을 즉시 메인 스레드로 전송
+    // [최우선 디버깅] 헤더 탐색 전 원본 데이터를 통째로 메인 스레드에 쏩니다.
     self.postMessage({ type: 'debug_rows', data: scanRows.slice(0, 5) });
 
     const keyWords = ['날짜', '일자', '판매일', '성명', '이름', '담당자', '사원', '매출', '실적', '금액', '사업부', '팀'];
     let headerRowIdx = -1;
     let maxMatch = 0;
+    let bestCandidateHeaders: string[] = [];
 
     scanRows.forEach((row, idx) => {
-      const matchCount = row.filter(cell => {
-        const val = String(cell || '').replace(/\s+/g, '');
+      const cleanRow = row.map(c => String(c || '').trim());
+      const matchCount = cleanRow.filter(cell => {
+        const val = cell.replace(/\s+/g, '');
         return keyWords.some(kw => val.includes(kw));
       }).length;
+      
+      // 후보군 수집 (가장 많은 컬럼이 채워진 행)
+      if (cleanRow.filter(Boolean).length > bestCandidateHeaders.length) {
+        bestCandidateHeaders = cleanRow;
+      }
+
       if (matchCount > maxMatch && matchCount >= 2) {
         maxMatch = matchCount;
         headerRowIdx = fullRange.s.r + idx;
@@ -40,10 +48,12 @@ self.onmessage = async (e: MessageEvent) => {
     });
 
     if (headerRowIdx === -1) {
-      throw new Error("필수 항목(날짜, 성명, 매출액 등)이 포함된 헤더 행을 찾을 수 없습니다.");
+      // 헤더를 찾지 못한 경우, 가장 유력한 행의 내용을 에러에 담아 보냅니다.
+      const rawHeaderString = bestCandidateHeaders.length > 0 ? `[${bestCandidateHeaders.slice(0, 8).join(', ')}...]` : "없음";
+      throw new Error(`필수 헤더 행(날짜, 성명 등)을 찾지 못했습니다. 인식된 컬럼: ${rawHeaderString}`);
     }
 
-    // 2. 헤더 확정 및 인덱스 추출
+    // 2. 헤더 확정 및 메인 전송
     const headers: string[] = scanRows[headerRowIdx - fullRange.s.r].map(h => String(h || '').replace(/\s+/g, ''));
     self.postMessage({ type: 'headers', data: headers });
 
@@ -58,9 +68,7 @@ self.onmessage = async (e: MessageEvent) => {
         range: { s: { r: rStart, c: fullRange.s.c }, e: { r: rEnd, c: fullRange.e.c } } 
       }) as any[][]);
 
-      // 빈 행 필터링 (모든 셀이 비어있거나 공백인 경우 제외)
       const validChunk = chunk.filter(row => row.some(cell => String(cell || '').trim() !== ''));
-
       if (validChunk.length > 0) {
         self.postMessage({ type: 'chunk', data: validChunk });
       }
