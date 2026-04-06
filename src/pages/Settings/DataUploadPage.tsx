@@ -26,7 +26,6 @@ const DataUploadPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<'IDLE' | 'PARSING' | 'SAVING'>('IDLE');
   const [isResetting, setIsResetting] = useState(false);
-  const [resetType, setResetType] = useState<'data' | 'factory' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [progress, setProgress] = useState(0);
