@@ -126,7 +126,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
         </div>
         <div>
           <span className={styles.logoTextMain}>VODA</span>
-          <span className={styles.logoTextSub}>영업의 답을 보다</span>
+          <span className={styles.logoTextSub}>
+            영업의 답을 보다 <span className={styles.versionTag}>v1.4.2</span>
+          </span>
         </div>
       </div>
 

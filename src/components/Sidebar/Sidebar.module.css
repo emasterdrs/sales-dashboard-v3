@@ -156,6 +156,23 @@
   text-overflow: ellipsis;
 }
 
+.logoTextSub {
+  font-size: 11px;
+  color: #94a3b8;
+  display: block;
+}
+
+.versionTag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 .userRole {
   font-size: 11px;
   color: var(--text-dim);
