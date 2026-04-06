@@ -62,12 +62,14 @@ const DataUploadPage: React.FC = () => {
   };
 
   const downloadTemplate = (type: 'empty' | 'sample') => {
-    const headers = [['날짜', '사업부', '팀', '성명', '거래처', '품목', '매출액', '카테고리']];
+    // 사용자가 제공한 이미지의 컬럼 순서와 명칭 반영
+    const headers = [['날짜', '사업부', '팀', '성명', '거래처코드', '거래처', '품목코드', '품목', '매출액', '카테고리']];
     let data = [...headers];
     
     if (type === 'sample') {
-      data.push(['2024-03-01', '강남본부', '영업1팀', '홍길동', '주식회사 에이비씨', '서버 호스팅', '5000000', 'IT 서비스']);
-      data.push(['2024-03-02', '강북본부', '기술영업팀', '이영희', 'VODA 컴퍼니', '네트워크 컨설팅', '3500000', '컨설팅']);
+      data.push(['2024-01-01', '2. 대리점사업부', '강남지점', '이태민', 'D0119', '북안산혜민', 'AA02230', '진종합', '601000', '어묵']);
+      data.push(['2024-01-01', '2. 대리점사업부', '강남지점', '권재현', 'D5652', '서수원한림', 'AA02230', '진종합', '681000', '어묵']);
+      data.push(['2024-01-01', '2. 대리점사업부', '강남지점', '권재현', 'D5652', '서수원한림', 'AA53400', '어묵전골', '218000', '어묵']);
     }
 
     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -77,6 +79,9 @@ const DataUploadPage: React.FC = () => {
   };
 
   const getColIndex = (headers: string[], aliases: string[]) => {
+    // 정확한 매칭을 우선순위로 하여 '거래처코드'와 '거래처'가 섞이지 않도록 함
+    const exact = headers.findIndex(h => aliases.includes(String(h || '').trim()));
+    if (exact !== -1) return exact;
     return headers.findIndex(h => aliases.some(a => String(h || '').trim().includes(a)));
   };
 
@@ -105,14 +110,15 @@ const DataUploadPage: React.FC = () => {
       if (raw.length < 2) throw new Error("데이터가 부족합니다.");
       const headers = raw[0].map(h => String(h || ''));
       
+      // 인덱스 매핑 시 '거래처코드'를 제외한 순수 매칭 강화
       const idx = {
         date: getColIndex(headers, ['날짜', 'date']),
         div: getColIndex(headers, ['지점', '사업부', 'division']),
         team: getColIndex(headers, ['팀', '팀명', 'team']),
         name: getColIndex(headers, ['성명', '이름', 'name', 'staff']),
-        customer: getColIndex(headers, ['거래처', 'customer']),
-        item: getColIndex(headers, ['품목', 'item']),
-        amount: getColIndex(headers, ['금액', '매출', 'amount']),
+        customer: getColIndex(headers, ['거래처']), // '거래처코드'와 섞이지 않도록 단어 정확히 지정
+        item: getColIndex(headers, ['품목']), // '품목코드'와 섞이지 않도록 단어 정확히 지정
+        amount: getColIndex(headers, ['금액', '매출액', '매출', 'amount']),
         cat: getColIndex(headers, ['유형', '카테고리', 'category'])
       };
 
