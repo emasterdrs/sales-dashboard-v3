@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, X, Loader2, Zap, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, X, Loader2, Database, AlertTriangle, Download, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -61,6 +61,21 @@ const DataUploadPage: React.FC = () => {
     } catch (e) { console.error('fetchOrgInfo Error:', e); }
   };
 
+  const downloadTemplate = (type: 'empty' | 'sample') => {
+    const headers = [['날짜', '사업부', '팀', '성명', '거래처', '품목', '매출액', '카테고리']];
+    let data = [...headers];
+    
+    if (type === 'sample') {
+      data.push(['2024-03-01', '강남본부', '영업1팀', '홍길동', '주식회사 에이비씨', '서버 호스팅', '5000000', 'IT 서비스']);
+      data.push(['2024-03-02', '강북본부', '기술영업팀', '이영희', 'VODA 컴퍼니', '네트워크 컨설팅', '3500000', '컨설팅']);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, type === 'empty' ? "매출업로드_양식.xlsx" : "매출업로드_예제.xlsx");
+  };
+
   const getColIndex = (headers: string[], aliases: string[]) => {
     return headers.findIndex(h => aliases.some(a => String(h || '').trim().includes(a)));
   };
@@ -83,7 +98,6 @@ const DataUploadPage: React.FC = () => {
     
     try {
       const dataArr = await file.arrayBuffer();
-      // XLSX parsing is CPU heavy, but we wait for it
       const wb = XLSX.read(dataArr, { type: 'array', cellNF: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
@@ -106,10 +120,9 @@ const DataUploadPage: React.FC = () => {
         throw new Error("필수 컬럼(날짜, 성명, 매출액)을 찾을 수 없습니다.");
       }
 
-      // Phase 1a: Async Chunked Parsing (v2.6 Massive Engine)
       const rows: any[] = [];
       const totalRawRows = raw.length - 1;
-      const PARSE_CHUNK = 10000;
+      const PARSE_CHUNK = 5000;
       
       for (let i = 1; i < raw.length; i += PARSE_CHUNK) {
           const chunk = raw.slice(i, i + PARSE_CHUNK);
@@ -127,18 +140,15 @@ const DataUploadPage: React.FC = () => {
               };
               if (mapped.name) rows.push(mapped);
           });
-          setProgress(Math.floor((i / totalRawRows) * 10)); // 0-10% for parsing
-          await new Promise(r => setTimeout(r, 0)); // Yield to UI
+          setProgress(Math.floor((i / totalRawRows) * 10));
+          await new Promise(r => setTimeout(r, 0));
       }
 
       const local = { ...orgMap };
-
-      // Phase 1b: Enterprise Provisioning (v3.2 Intelligent Sync & Repair)
       setProgress(15);
-      
-      const normalize = (s: string) => s.replace(/\s+/g, ''); // Space-agnostic normalization
+      const normalize = (s: string) => s.replace(/\s+/g, ''); 
 
-      // 1. Synchronize Divisions
+      // Sync Hierarchy
       const existingDivs = await fetchAll(supabase.from('sales_divisions').select('id, name').eq('company_id', cid));
       existingDivs.forEach(d => {
           local.divisions[d.name.trim()] = d.id;
@@ -156,7 +166,6 @@ const DataUploadPage: React.FC = () => {
       }
       setProgress(25);
 
-      // 2. Synchronize Teams
       const existingTeams = await fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid));
       existingTeams.forEach(t => {
           local.teamMap[`${t.division_id}_${t.name.trim()}`] = t.id;
@@ -186,7 +195,6 @@ const DataUploadPage: React.FC = () => {
       }
       setProgress(40);
 
-      // 3. Synchronize Staff
       const tIds = Object.values(local.teamMap);
       if (tIds.length > 0) {
           const S_CHUNK = 100;
@@ -225,7 +233,6 @@ const DataUploadPage: React.FC = () => {
       }
       setProgress(55);
 
-      // 4. Synchronize Categories
       const existingCats = await fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid));
       existingCats.forEach(c => {
           local.catMap[c.name.trim()] = c.id;
@@ -233,7 +240,6 @@ const DataUploadPage: React.FC = () => {
       });
 
       const missingCatNames = Array.from(new Set(rows.map(r => r.cat))).filter(c => c && !local.catMap[c] && !local.catMap[`_norm_${normalize(c)}`]);
-      // Ensure '999. 미분류' is included if missing from DB
       if (!local.catMap['999. 미분류'] && !local.catMap['_norm_999.미분류']) {
           if (!missingCatNames.includes('999. 미분류')) missingCatNames.push('999. 미분류');
       }
@@ -248,7 +254,6 @@ const DataUploadPage: React.FC = () => {
       }
       setProgress(65);
 
-      // Phase 2: Record Preparation & Aggregation (v3.2 Space-Agnostic Matcher)
       const aggMap = new Map<string, any>();
       let skippedCount = 0;
       rows.forEach(r => {
@@ -281,7 +286,6 @@ const DataUploadPage: React.FC = () => {
       setOrgMap(local);
       setProgress(70);
 
-      // Phase 3: Final Batch Upsert (v3.2 High-Performance Streamer)
       let sc = 0; const CHUNK = 1000;
       const totalRecs = finalRecs.length;
       const mergedCount = rows.length - totalRecs - skippedCount;
@@ -298,10 +302,9 @@ const DataUploadPage: React.FC = () => {
           } else sc += chunk.length;
           
           setProgress(70 + Math.floor((i / totalRecs) * 30));
-          await new Promise(r => setTimeout(r, 10)); // Throttling for stability (10ms)
+          await new Promise(r => setTimeout(r, 10));
       }
 
-      // Phase 4: Server-side Pre-aggregation Refresh
       setProgress(95);
       const affectedMonths = Array.from(new Set(finalRecs.map(r => {
         const d = new Date(r.sales_date);
@@ -310,31 +313,28 @@ const DataUploadPage: React.FC = () => {
 
       for (const m of affectedMonths) {
         const [y, mm] = m.split('-').map(Number);
-        await supabase.rpc('refresh_sales_summary', { 
-            p_company_id: cid, 
-            p_year: y, 
-            p_month: mm 
-        });
+        await supabase.rpc('refresh_sales_summary', { p_company_id: cid, p_year: y, p_month: mm });
       }
 
       setResult({ total: rows.length, success: sc, failed: totalRecs - sc + skippedCount, merged: mergedCount, errors: errList });
       setProgress(100);
       if (sc > 0) {
         setFile(null);
-        alert(`업로드 완료!\n성공: ${sc}건\n실패: ${rows.length - sc}건\n통계 계산이 완료되었습니다.`);
+        alert('매출 데이터 업로드가 완료되었습니다!');
       }
     } catch (e: any) { alert(e.message); } finally { setIsUploading(false); setProgress(0); }
   };
 
   const handleReset = async () => {
     const cid = profile?.company_id;
-    if (!cid || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인 필요');
+    if (!cid || resetConfirmation !== '데이터 초기화 확인') return alert('문구 확인이 필요합니다.');
     setIsResetting(true);
     try {
       if (resetType === 'data') {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
           await supabase.from('sales_summary').delete().eq('company_id', cid);
+          alert('영업 실적 및 목표 데이터가 초기화되었습니다.');
       } else {
           await supabase.from('sales_records').delete().eq('company_id', cid);
           await supabase.from('sales_targets').delete().eq('company_id', cid);
@@ -346,71 +346,121 @@ const DataUploadPage: React.FC = () => {
           await supabase.from('sales_divisions').delete().eq('company_id', cid);
           await supabase.from('product_categories').delete().eq('company_id', cid);
           fetchOrgInfo();
+          alert('조직 정보를 포함한 모든 데이터가 초기화되었습니다.');
       }
-      setResetType(null); setResetConfirmation(''); alert('완전 초기화 완료');
+      setResetType(null); setResetConfirmation('');
     } catch (e: any) { alert(e.message); } finally { setIsResetting(false); }
   };
 
   return (
     <div className={`${styles.container} fade-in`}>
-      <header className={styles.header}><div className={styles.titleArea}><div className={styles.iconWrapper}><Zap size={28} /></div><h1 className={styles.title}>데이터 인텔리전스 업로드 (v3.2.5)</h1></div></header>
+      <header className={styles.header}>
+        <div className={styles.titleArea}>
+          <div className={styles.iconWrapper}><Database size={24} /></div>
+          <h1 className={styles.title}>매출 실적 데이터 관리</h1>
+        </div>
+      </header>
+      
       <div className={styles.uploadCard}>
         {!file ? (
-          <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
-            <Upload size={48} /><div className={styles.dropzoneText}><p>파일 업로드</p><span>지능형 헤더 매핑 및 대용량 청크 처리</span></div><input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+          <div className={`${styles.dropzone} ${isDragging ? styles.isDragging : ''}`} 
+               onClick={() => fileInputRef.current?.click()} 
+               onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} 
+               onDragLeave={() => setIsDragging(false)} 
+               onDrop={(e) => {e.preventDefault(); setIsDragging(false); if(e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0])}}>
+            <Upload size={40} color="#3b82f6" />
+            <div className={styles.dropzoneText}>
+              <p>마우스로 파일을 끌어오거나 클릭하여 선택</p>
+              <span>엑셀(.xlsx) 파일만 업로드 가능합니다.</span>
+            </div>
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
           </div>
         ) : (
-          <div className={styles.fileInfo}><div className={styles.fileName}><FileText size={20} /> {file.name}</div><button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button></div>
+          <div className={styles.fileInfo}>
+            <div className={styles.fileName}><FileText size={20} color="#3b82f6" /> {file.name}</div>
+            <button className={styles.removeBtn} onClick={() => setFile(null)}><X size={20} /></button>
+          </div>
         )}
+
         <div className={styles.instructions}>
-          <h3 className={styles.instructionTitle}>🚀 업그레이드 엔진 v3.2.5 (Resilient)</h3>
+          <h3 className={styles.instructionTitle}><AlertCircle size={18} /> 업로드 전 꼭 확인해주세요!</h3>
           <ul className={styles.instructionList}>
-            <li className={styles.instructionItem}><b>슈퍼 리질리언트 매칭:</b> 미세한 공백이나 오타 등 데이터 불정합성을 완벽히 필터링하여 정확하게 조직을 매칭합니다.</li>
-            <li className={styles.instructionItem}><b>동기식 상태 관리:</b> 비동기 데이터베이스 통신 지연을 극복하여 실시간으로 인적 자원 정보를 동기화합니다.</li>
-            <li className={styles.instructionItem}><b>계층적 데이터 보호:</b> 상위 조직 정보의 무결성을 먼저 검증하여 하위 데이터 업로드 실패를 방지합니다.</li>
+            <li className={styles.instructionItem}><b>날짜 형식:</b> '2024-03-01' 또는 '2024.03.01' 형식을 권장합니다.</li>
+            <li className={styles.instructionItem}><b>필수 정보:</b> 날짜, 성명, 매출액은 반드시 입력되어야 합니다.</li>
+            <li className={styles.instructionItem}><b>자동 매칭:</b> 조직 정보가 시스템에 등록되어 있어야 실적이 정확히 집계됩니다.</li>
+            <li className={styles.instructionItem}><b>데이터 덮어쓰기:</b> 동일한 날짜/사원/품목의 실적은 최신 업로드 파일로 업데이트됩니다.</li>
           </ul>
+          
+          <div className={styles.templateTools}>
+            <button className={styles.templateBtn} onClick={() => downloadTemplate('sample')}>
+              <FileSpreadsheet size={18} /> 업로드 예시 파일 다운로드
+            </button>
+            <button className={styles.templateBtn} onClick={() => downloadTemplate('empty')}>
+              <Download size={18} /> 업로드 전용 양식 다운로드
+            </button>
+          </div>
         </div>
-        <div className={styles.progressArea}>
-           {isUploading && (
+
+        {isUploading && (
+          <div className={styles.progressArea}>
              <div className={styles.progressBarWrapper}>
                <div className={styles.progressBar} style={{ width: `${progress}%` }} />
-               <span className={styles.progressText}>{progress}% 완료</span>
+               <span className={styles.progressText}>{progress}% 처리 중...</span>
              </div>
-           )}
-        </div>
+          </div>
+        )}
+
         <button className={styles.uploadBtn} disabled={!file || isUploading} onClick={startUpload}>
-          {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : '지능형 대용량 업로드 시작'}
+          {isUploading ? <Loader2 className={styles.animateSpin} size={20} /> : '매출 데이터 업로드 시작'}
         </button>
+
         {result && (
           <div style={{ marginTop: 24 }}>
             <div className={styles.statsArea}>
-              <div className={styles.statCard}><span className={styles.statLabel}>총계</span><span className={styles.statValue}>{result.total}</span></div>
-              <div className={styles.statCard} style={{borderColor: '#10B981'}}><span className={styles.statLabel}>성공</span><span className={styles.statValue} style={{color: '#10B981'}}>{result.success}</span></div>
-              <div className={styles.statCard} style={{borderColor: '#ef4444'}}><span className={styles.statLabel}>실패</span><span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span></div>
+              <div className={styles.statCard}><span className={styles.statLabel}>전체 행</span><span className={styles.statValue}>{result.total}</span></div>
+              <div className={styles.statCard}><span className={styles.statLabel}>성공</span><span className={styles.statValue} style={{color: '#10B981'}}>{result.success}</span></div>
+              <div className={styles.statCard}><span className={styles.statLabel}>오류</span><span className={styles.statValue} style={{color: '#ef4444'}}>{result.failed}</span></div>
             </div>
             {result.errors.length > 0 && (
-              <div className={styles.errorArea} style={{ marginTop: 24 }}>
-                <div className={styles.errorTitle}><AlertCircle size={18} /><h4>상세 실패 리포트 (행 번호 및 사유)</h4></div>
-                <ul className={styles.errorList}>{result.errors.slice(0, 100).map((err, idx) => <li key={idx}>{err}</li>)}</ul>
+              <div className={styles.errorArea}>
+                <div className={styles.errorTitle}><AlertCircle size={16} /><h4>실패 사유 리포트</h4></div>
+                <ul className={styles.errorList}>{result.errors.slice(0, 50).map((err, idx) => <li key={idx}>{err}</li>)}</ul>
               </div>
             )}
           </div>
         )}
       </div>
+
       <div className={styles.dangerZone}>
-        <div className={styles.dangerHeader}><AlertTriangle size={24} color="#EF4444" /><h2 className={styles.dangerTitle}>시스템 초기화</h2></div>
-        <div className={styles.resetOptions}>
-          <button className={`${styles.resetOptionBtn} ${resetType === 'data' ? styles.active : ''}`} onClick={() => setResetType('data')}>실적만</button>
-          <button className={`${styles.resetOptionBtn} ${resetType === 'factory' ? styles.active : ''}`} onClick={() => setResetType('factory')}>전체 공장</button>
+        <div className={styles.dangerHeader}>
+          <AlertTriangle size={24} color="#dc2626" />
+          <h2 className={styles.dangerTitle}>데이터 관리 및 초기화</h2>
         </div>
+        <p className={styles.dangerDesc}>데이터 초기화는 되돌릴 수 없습니다. 범위를 신중하게 선택하신 후 진행해 주세요.</p>
+        
+        <div className={styles.resetOptions}>
+          <button className={`${styles.resetOptionBtn} ${resetType === 'data' ? styles.active : ''}`} onClick={() => setResetType('data')}>
+            영업 실적/목표만 초기화
+          </button>
+          <button className={`${styles.resetOptionBtn} ${resetType === 'factory' ? styles.active : ''}`} onClick={() => setResetType('factory')}>
+            모든 데이터(조직 포함) 초기화
+          </button>
+        </div>
+
         {resetType && (
-          <div className={styles.resetConfirmArea} style={{ marginTop: 16 }}>
-            <input type="text" className={styles.resetInput} placeholder='"데이터 초기화 확인" 입력' value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} />
-            <button className={styles.resetBtn} disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting} onClick={handleReset}>초기화</button>
+          <div className={styles.resetConfirmArea}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>
+              안전을 위해 <b>"데이터 초기화 확인"</b> 문구를 아래에 입력해 주세요.
+            </p>
+            <input type="text" className={styles.resetInput} placeholder='문구를 입력하세요' value={resetConfirmation} onChange={(e) => setResetConfirmation(e.target.value)} />
+            <button className={styles.resetBtn} disabled={resetConfirmation !== '데이터 초기화 확인' || isResetting} onClick={handleReset}>
+              {isResetting ? <Loader2 className={styles.animateSpin} size={20} /> : `${resetType === 'data' ? '실적' : '전체'} 데이터 영구 삭제`}
+            </button>
           </div>
         )}
       </div>
     </div>
   );
 };
+
 export default DataUploadPage;
