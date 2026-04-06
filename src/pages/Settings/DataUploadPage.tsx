@@ -133,7 +133,8 @@ const DataUploadPage: React.FC = () => {
       
       // 2. 헤더 검증 및 디버깅 강화
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      const headerRow: any[] = XLSX.utils.sheet_to_json(ws, { header: 1, range: { s: range.s, e: { r: range.s.r, c: range.e.c } } })[0] || [];
+      const headerRows = (XLSX.utils.sheet_to_json(ws, { header: 1, range: { s: range.s, e: { r: range.s.r, c: range.e.c } } }) as any[][]);
+      const headerRow: any[] = headerRows[0] || [];
       const headers = headerRow.map(h => String(h || '').trim());
       
       console.log("🔍 업로드 파일 헤더 목록:", headers);
