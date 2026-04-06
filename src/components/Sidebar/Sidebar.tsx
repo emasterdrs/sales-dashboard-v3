@@ -125,10 +125,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
           <TrendingUp size={28} />
         </div>
         <div>
-          <span className={styles.logoTextMain}>VODA</span>
-          <span className={styles.logoTextSub}>
-            영업의 답을 보다 <span className={styles.versionTag}>v1.4.2</span>
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className={styles.logoTextMain}>VODA</span>
+            <span className={styles.versionBadgeTop}>v1.4.2</span>
+          </div>
+          <span className={styles.logoTextSub}>영업의 답을 보다</span>
         </div>
       </div>
 
