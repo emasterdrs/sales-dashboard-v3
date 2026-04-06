@@ -36,13 +36,14 @@ const WorkingDaysPage: React.FC = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1;
 
-        const { data, error } = await supabase
+        const { data: configList, error } = await supabase
           .from('working_days_config')
           .select('holidays')
           .eq('company_id', profile.company_id)
           .eq('year', year)
-          .eq('month', month)
-          .single();
+          .eq('month', month);
+
+        const data = configList?.[0];
 
         if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
           console.error('Error fetching working days config:', error);
@@ -84,7 +85,8 @@ const WorkingDaysPage: React.FC = () => {
 
   const saveConfig = async () => {
     if (!profile?.company_id) {
-      alert('로그인이 필요하거나 회사 정보가 없습니다.');
+      // console.error('로그인이 필요하거나 회사 정보가 없습니다.');
+      // (DataUploadPage와 통일된 Toast UI가 이 페이지에도 적용되도록 추후 확장 가능)
       return;
     }
 
@@ -107,10 +109,10 @@ const WorkingDaysPage: React.FC = () => {
         });
 
       if (error) throw error;
-      alert('영업일수 설정이 저장되었습니다.');
+      // console.log('영업일수 설정 저장 완료');
     } catch (err) {
       console.error('Error saving config:', err);
-      alert('저장 중 오류가 발생했습니다.');
+      // console.error('저장 중 오류 발생');
     } finally {
       setIsSaving(false);
     }

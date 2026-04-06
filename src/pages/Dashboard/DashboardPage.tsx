@@ -122,8 +122,9 @@ const DashboardPage: React.FC = () => {
 
       const summary = summaryRows?.[0];
 
-      // 2. Load Working Days Context
-      const { data: wd } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month).single();
+      // 2. Load Working Days Context (406 에러 방지를 위해 .single() 제거 후 배열의 첫 요소 사용)
+      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', year).eq('month', month);
+      const wd = wdList?.[0];
       const holidaysObj = wd?.holidays || [];
       const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
       const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(year, month, parsedHolidays);
