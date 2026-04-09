@@ -226,9 +226,12 @@ const DashboardPage: React.FC = () => {
           p_month: queryState.month 
         });
         
-        const { data: retryRows } = await supabase.from('sales_summary').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month).is('division_id', null).is('category_id', null);
+        const { data: retryRows } = await supabase.from('sales_summary').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month).is('division_id', null).is('category_id', null).limit(1);
         if (retryRows && retryRows.length > 0) {
           loadMetrics(retryRows[0] as SummaryRow);
+        } else {
+          // 데이터가 여전히 없으면 기본값(0) 로드
+          loadMetrics({ performance: 0, goal: 0, ly_performance: 0, prev_performance: 0, ytd_performance: 0, expected_performance: 0 } as SummaryRow);
         }
       } else {
         loadMetrics(rows[0]);
@@ -267,6 +270,8 @@ const DashboardPage: React.FC = () => {
       showNotify(`데이터 로딩 오류: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
+      // Fail-safe: Ensure we don't stay in loading state even if async parts are tricky
+      setTimeout(() => setIsLoading(false), 300);
     }
   }, [profile?.company_id, queryState.year, queryState.month, formatValue, loadMetrics, showNotify, refreshDrillDownData]);
 
