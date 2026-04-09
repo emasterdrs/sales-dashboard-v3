@@ -128,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className={styles.logoTextMain}>VODA</span>
-            <span className={styles.versionBadgeTop}>v1.4.2</span>
+            <span className={styles.versionBadgeTop}>v1.5.0</span>
           </div>
           <span className={styles.logoTextSub}>영업의 답을 보다</span>
         </div>
