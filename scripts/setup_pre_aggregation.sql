@@ -30,14 +30,11 @@ CREATE TABLE public.sales_summary (
 );
 
 -- Unique constraint for upsert/lookup
-CREATE UNIQUE INDEX idx_sales_summary_unique ON public.sales_summary (
+-- We use a proper UNIQUE CONSTRAINT instead of just an index so we can use ON CONFLICT easily.
+ALTER TABLE public.sales_summary 
+ADD CONSTRAINT sales_summary_unique_key UNIQUE (
     company_id, year, month, 
-    COALESCE(division_id, '00000000-0000-0000-0000-000000000000'::UUID), 
-    COALESCE(team_id, '00000000-0000-0000-0000-000000000000'::UUID), 
-    COALESCE(staff_id, '00000000-0000-0000-0000-000000000000'::UUID), 
-    COALESCE(category_id, '00000000-0000-0000-0000-000000000000'::UUID), 
-    COALESCE(customer_name, ''), 
-    COALESCE(item_name, '')
+    division_id, team_id, staff_id, category_id, customer_name, item_name
 );
 
 -- Index for dashboard performance
@@ -65,19 +62,16 @@ DECLARE
 BEGIN
     -- 0. Context: Working Days
     SELECT total_days INTO v_total_wd 
-    FROM working_days_config 
+    FROM public.working_days_config 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month;
     
     IF v_total_wd IS NULL OR v_total_wd = 0 THEN v_total_wd := 21; END IF;
 
-    -- Calculate current working days (up to today or month end)
-    -- We'll use a simplified version for SQL
     IF CURRENT_DATE < v_start_date THEN
         v_current_wd := 0;
     ELSIF CURRENT_DATE > v_end_date THEN
         v_current_wd := v_total_wd;
     ELSE
-        -- Count week days so far this month
         SELECT count(*) INTO v_current_wd
         FROM generate_series(v_start_date, LEAST(CURRENT_DATE, v_end_date), '1 day'::interval) AS d
         WHERE EXTRACT(DOW FROM d) NOT IN (0, 6);
@@ -85,92 +79,98 @@ BEGIN
     
     v_progress_limit := CASE WHEN v_total_wd > 0 THEN v_current_wd::NUMERIC / v_total_wd ELSE 0 END;
 
-    -- 1. CLEAN UP existing for this month
+    -- 1. CLEAN UP
     DELETE FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month;
 
-    -- 2. BASE: Insert Granular Combinations (from sales_records)
-    -- We aggregate records grouped by all possible dimensions present in records
+    -- 2. BASE: Granular Records
     INSERT INTO public.sales_summary (
         company_id, year, month, division_id, team_id, staff_id, category_id, customer_name, item_name, performance
     )
     SELECT 
         p_company_id, p_year, p_month, 
-        t.division_id::UUID, r.team_id::UUID, r.staff_id::UUID, r.category_id::UUID, r.customer_name, r.item_name,
+        t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name,
         SUM(r.amount)
     FROM public.sales_records r
     JOIN public.sales_teams t ON r.team_id = t.id
     WHERE r.company_id = p_company_id AND r.sales_date BETWEEN v_start_date AND v_end_date
     GROUP BY t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name;
 
-    -- 3. CALCULATE AGGREGATES (ROLLUP SIMULATION)
-    -- Insert higher-level totals (Company, Division, Team, Staff, Category)
+    -- 3. CALCULATE AGGREGATES (with Anti-Duplicate check)
     
     -- Company Total
     INSERT INTO public.sales_summary (company_id, year, month, performance)
     SELECT p_company_id, p_year, p_month, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month 
-    AND division_id IS NOT NULL; -- Avoid double counting if we had other totals
+    AND (division_id IS NOT NULL OR team_id IS NOT NULL OR staff_id IS NOT NULL OR category_id IS NOT NULL OR customer_name IS NOT NULL);
 
     -- Division Totals
     INSERT INTO public.sales_summary (company_id, year, month, division_id, performance)
     SELECT p_company_id, p_year, p_month, division_id, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND team_id IS NOT NULL
-    GROUP BY division_id;
+    AND division_id IS NOT NULL
+    GROUP BY division_id
+    ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
     -- Team Totals
     INSERT INTO public.sales_summary (company_id, year, month, team_id, performance)
     SELECT p_company_id, p_year, p_month, team_id, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND staff_id IS NOT NULL
-    GROUP BY team_id;
+    AND team_id IS NOT NULL
+    GROUP BY team_id
+    ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
     -- Staff Totals
     INSERT INTO public.sales_summary (company_id, year, month, staff_id, performance)
     SELECT p_company_id, p_year, p_month, staff_id, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
-    GROUP BY staff_id;
+    AND staff_id IS NOT NULL
+    GROUP BY staff_id
+    ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
     -- Category Totals
     INSERT INTO public.sales_summary (company_id, year, month, category_id, performance)
-    SELECT p_company_id, p_year, p_month, category_id::UUID, SUM(performance)
+    SELECT p_company_id, p_year, p_month, category_id, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
-    GROUP BY category_id;
+    AND category_id IS NOT NULL
+    GROUP BY category_id
+    ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
-    -- Staff per Category (for Type Mode Level 1)
+    -- Staff per Category 
     INSERT INTO public.sales_summary (company_id, year, month, staff_id, category_id, performance)
-    SELECT p_company_id, p_year, p_month, staff_id::UUID, category_id::UUID, SUM(performance)
+    SELECT p_company_id, p_year, p_month, staff_id, category_id, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
-    GROUP BY staff_id, category_id;
+    AND staff_id IS NOT NULL AND category_id IS NOT NULL
+    GROUP BY staff_id, category_id
+    ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
     -- 4. ATTACH GOALS
-    -- We update the summary rows with goals from sales_targets
-    
-    -- Team Goals (DIVISION targets skipped due to enum mismatch)
+    -- Team Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
-    FROM sales_targets t
+    FROM public.sales_targets t
     WHERE s.team_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'TEAM'
-    AND s.staff_id IS NULL;
+    AND s.staff_id IS NULL AND s.customer_name IS NULL;
 
     -- Staff Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
-    FROM sales_targets t
+    FROM public.sales_targets t
     WHERE s.staff_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'STAFF'
     AND s.customer_name IS NULL;
 
     -- Category Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
-    FROM sales_targets t
+    FROM public.sales_targets t
     WHERE s.category_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'CATEGORY'
-    AND s.staff_id IS NULL;
+    AND s.staff_id IS NULL AND s.customer_name IS NULL;
 
     -- Company Total Goal (Sum of TEAM goals)
     UPDATE public.sales_summary
@@ -182,15 +182,13 @@ BEGIN
     SET expected_performance = CASE WHEN v_progress_limit > 0 THEN (performance / v_progress_limit) ELSE 0 END
     WHERE company_id = p_company_id AND year = p_year AND month = p_month;
 
-    -- 6. ATTACH LAST YEAR PERFORMANCE (Simplified: only for totals)
+    -- 6. ATTACH LAST YEAR PERFORMANCE (Simplified)
     UPDATE public.sales_summary s
     SET ly_performance = (
-        SELECT COALESCE(SUM(amount), 0) FROM sales_records 
+        SELECT COALESCE(SUM(amount), 0) FROM public.sales_records 
         WHERE company_id = s.company_id AND sales_date BETWEEN v_start_date - v_ly_offset AND v_end_date - v_ly_offset
-        -- We would need consistent grouping for perfect YoYs in all levels
-        -- This is a placeholder for now
     )
-    WHERE s.company_id = p_company_id AND s.year = p_year AND s.month = p_month;
+    WHERE s.company_id = p_company_id AND s.year = p_year AND s.month = p_month AND s.division_id IS NULL AND s.category_id IS NULL;
 
 END;
 $$ LANGUAGE plpgsql;
