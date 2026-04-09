@@ -73,9 +73,10 @@ const ExcelAnalysisPage: React.FC = () => {
     };
 
     const formatted = raw.map(row => {
-      const amount = parseNumLocal(getVal(row, ['매출금액', '판매금액', '금액', '실적', '판매가', 'Amount', 'Price']));
-      const cust = String(getVal(row, ['매출처', '거래처', '고객사', 'Customer', 'Client']) || '기타');
-      const staff = String(getVal(row, ['담당자', '성명', '이름', 'Staff', 'Salesperson']) || '미배정');
+      const amount = parseNumLocal(getVal(row, ['매출액', '매출금액', '판매금액', '금액', '실적', '판매가', 'Amount', 'Price']));
+      const cust = String(getVal(row, ['거래처', '매출처', '고객사', 'Customer', 'Client']) || '기타');
+      const staff = String(getVal(row, ['성명', '담당자', '이름', 'Staff', 'Salesperson']) || '미배정');
+      const salesDateRaw = getVal(row, ['날짜', '매출일자', 'Date']);
       
       total += amount;
       customerMap[cust] = (customerMap[cust] || 0) + amount;
@@ -88,7 +89,8 @@ const ExcelAnalysisPage: React.FC = () => {
         _processedStaff: staff,
         _processedDiv: String(getVal(row, ['사업부', '본부', 'Division', 'Dept']) || '-'),
         _processedTeam: String(getVal(row, ['팀', '부서', 'Team', 'Group']) || '-'),
-        _processedItem: String(getVal(row, ['품목명', '제품명', '상품명', 'Item', 'Product']) || '-')
+        _processedItem: String(getVal(row, ['품목', '품목명', '제품명', '상품명', 'Item', 'Product']) || '-'),
+        _processedDate: salesDateRaw || `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`
       };
     });
 
@@ -142,8 +144,8 @@ const ExcelAnalysisPage: React.FC = () => {
           customer_name: String(row._processedCust || ''),
           item_name: String(row._processedItem || ''),
           amount: Number(row._processedAmount || 0),
-          sales_date: `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`,
-          category_name: '미분류'
+          sales_date: row._processedDate,
+          category_name: String(row['카테고리'] || '미분류')
         }));
 
         const { error } = await supabase.from('sales_records').insert(chunk);
