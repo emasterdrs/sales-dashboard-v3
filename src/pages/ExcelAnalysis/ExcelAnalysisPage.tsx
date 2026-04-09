@@ -1,11 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   FileSpreadsheet, 
   TrendingUp, 
   BarChart3, 
   LayoutDashboard, 
-  Download,
   Upload,
   Table as TableIcon
 } from 'lucide-react';
