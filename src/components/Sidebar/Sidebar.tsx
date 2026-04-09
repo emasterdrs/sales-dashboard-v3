@@ -79,8 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
 
   const menuSections = [];
 
-  // 1. Dashboard Menus (Integrated)
-  if (isCompanyAdmin || isUser) {
+  // 1. Dashboard Menus (Available to ALL roles)
+  if (isSuper || isCompanyAdmin || isUser) {
     menuSections.push({
       title: "데이터 분석",
       items: [
@@ -130,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className={styles.logoTextMain}>VODA</span>
-            <span className={styles.versionBadgeTop}>v1.6.0</span>
+            <span className={styles.versionBadgeTop}>v1.6.1</span>
           </div>
           <span className={styles.logoTextSub}>영업의 답을 보다</span>
         </div>
