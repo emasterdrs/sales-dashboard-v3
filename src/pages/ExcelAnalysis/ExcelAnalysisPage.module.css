@@ -71,6 +71,60 @@
   transform: translateY(-1px);
 }
 
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #10b981;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.saveBtn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.toast {
+  position: absolute;
+  top: 80px;
+  right: 32px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  animation: slideIn 0.3s ease-out;
+  z-index: 100;
+}
+
+.toast.success {
+  background: #10b981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.toast.error {
+  background: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 /* Empty State */
 .emptyState {
   display: flex;

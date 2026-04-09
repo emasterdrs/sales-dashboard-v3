@@ -357,7 +357,7 @@ const DashboardPage: React.FC = () => {
       <header className={styles.controlTower}>
         <div className={styles.leftGroup}>
            <div className={styles.mainTitleArea}>
-             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.6.2</span></h1>
+             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.7.0</span></h1>
              <p>{queryState.year}년 {queryState.month}월 통합 분석 리포트</p>
            </div>
            <div className={styles.viewSwitcher}>

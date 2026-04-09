@@ -4,11 +4,19 @@ import {
   FileSpreadsheet, 
   TrendingUp, 
   BarChart3, 
-  LayoutDashboard, 
+  LayoutDashboard,
   Upload,
-  Table as TableIcon
+  Table as TableIcon,
+  Save,
 } from 'lucide-react';
+import { supabase } from '../../api/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import styles from './ExcelAnalysisPage.module.css';
+
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+}
 
 interface ExcelSalesRecord {
   '사업부'?: string;
@@ -22,6 +30,18 @@ interface ExcelSalesRecord {
 }
 
 const ExcelAnalysisPage: React.FC = () => {
+  const { profile } = useAuth();
+  const [queryState] = useState({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1
+  });
+  const [notification, setNotification] = useState<Notification | null>(null);
+
+  const showNotify = (message: string, type: 'success' | 'error' = 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const [data, setData] = useState<ExcelSalesRecord[]>([]);
   const [summary, setSummary] = useState({
     totalAmount: 0,
@@ -30,6 +50,14 @@ const ExcelAnalysisPage: React.FC = () => {
     topStaff: { name: '', amount: 0 }
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const parseNumLocal = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : Number(val);
+    return isNaN(num) ? 0 : num;
+  };
 
   const processData = (raw: ExcelSalesRecord[]) => {
     let total = 0;
@@ -37,7 +65,7 @@ const ExcelAnalysisPage: React.FC = () => {
     const staffMap: Record<string, number> = {};
 
     raw.forEach(row => {
-      const amount = Number(row['매출금액'] || row['판매금액'] || 0);
+      const amount = parseNumLocal(row['매출금액'] || row['판매금액'] || 0);
       total += amount;
 
       const cust = row['매출처'] || '기타';
@@ -78,6 +106,50 @@ const ExcelAnalysisPage: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
+  const handleSaveToServer = async () => {
+    if (!profile?.company_id || data.length === 0) return;
+    
+    setIsSaving(true);
+    setUploadProgress(0);
+    
+    try {
+      const chunkSize = 10000;
+      const totalChunks = Math.ceil(data.length / chunkSize);
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize).map(row => ({
+          company_id: profile.company_id,
+          division_name: String(row['사업부'] || ''),
+          team_name: String(row['팀'] || ''),
+          staff_name: String(row['담당자'] || ''),
+          customer_name: String(row['매출처'] || ''),
+          item_name: String(row['품목명'] || ''),
+          amount: parseNumLocal(row['매출금액'] || row['판매금액'] || 0),
+          sales_date: `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`,
+          category_name: '미분류'
+        }));
+
+        const { error } = await supabase.from('sales_records').insert(chunk);
+        if (error) throw error;
+        
+        setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
+
+      await supabase.rpc('refresh_sales_summary', { 
+        p_company_id: profile.company_id, 
+        p_year: queryState.year, 
+        p_month: queryState.month 
+      });
+
+      showNotify(`${data.length.toLocaleString()}건의 데이터가 서버에 안전하게 저장되었습니다.`, 'success');
+    } catch (err: any) {
+      console.error(err);
+      showNotify(`서버 저장 실패: ${err.message}`, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const formatKrw = (val: number) => {
     return (val / 100000000).toFixed(1) + ' 억원';
   };
@@ -88,11 +160,26 @@ const ExcelAnalysisPage: React.FC = () => {
         <div className={styles.titleArea}>
           <FileSpreadsheet className={styles.titleIcon} strokeWidth={2.5} />
           <div>
-            <h1>간편 엑셀 실적 분석 <span className={styles.version}>v1.0</span></h1>
-            <p>서버 저장 없이 브라우저에서 즉시 실적을 확인하세요.</p>
+            <h1>간편 엑셀 실적 분석 <span className={styles.version}>v1.1</span></h1>
+            <p>서버에 저장하여 대시보드 통계에 즉시 반영하세요.</p>
           </div>
         </div>
+        {notification && (
+          <div className={`${styles.toast} ${styles[notification.type]}`}>
+            {notification.message}
+          </div>
+        )}
         <div className={styles.actions}>
+          {data.length > 0 && (
+            <button 
+              className={styles.saveBtn} 
+              onClick={handleSaveToServer}
+              disabled={isSaving}
+            >
+              <Save size={18} />
+              {isSaving ? `저장 중 (${uploadProgress}%)` : '서버에 그대로 저장하기'}
+            </button>
+          )}
           <label className={styles.uploadBtn}>
             <Upload size={18} />
             엑셀 파일 불러오기
