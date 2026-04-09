@@ -151,14 +151,7 @@ BEGIN
     -- 4. ATTACH GOALS
     -- We update the summary rows with goals from sales_targets
     
-    -- Division Goals
-    UPDATE public.sales_summary s
-    SET goal = t.target_amount
-    FROM sales_targets t
-    WHERE s.division_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'DIVISION'
-    AND s.team_id IS NULL AND s.staff_id IS NULL; -- Only update the Division-total row
-
-    -- Team Goals
+    -- Team Goals (DIVISION targets skipped due to enum mismatch)
     UPDATE public.sales_summary s
     SET goal = t.target_amount
     FROM sales_targets t
@@ -179,9 +172,9 @@ BEGIN
     WHERE s.category_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'CATEGORY'
     AND s.staff_id IS NULL;
 
-    -- Company Total Goal (Sum of Division goals)
+    -- Company Total Goal (Sum of TEAM goals)
     UPDATE public.sales_summary
-    SET goal = (SELECT SUM(goal) FROM public.sales_summary WHERE company_id = p_company_id AND year = p_year AND month = p_month AND division_id IS NOT NULL AND team_id IS NULL)
+    SET goal = (SELECT SUM(goal) FROM public.sales_summary WHERE company_id = p_company_id AND year = p_year AND month = p_month AND team_id IS NOT NULL AND staff_id IS NULL)
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND division_id IS NULL AND category_id IS NULL;
 
     -- 5. CALCULATE EXPECTED PERFORMANCE
