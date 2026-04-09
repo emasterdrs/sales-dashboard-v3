@@ -2,7 +2,7 @@
 -- 1. Create Comprehensive sales_summary table
 -- ==========================================
 
-DROP TABLE IF EXISTS public.sales_summary;
+DROP TABLE IF EXISTS public.sales_summary CASCADE;
 
 CREATE TABLE public.sales_summary (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,8 +29,7 @@ CREATE TABLE public.sales_summary (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Unique constraint for upsert/lookup
--- We use a proper UNIQUE CONSTRAINT instead of just an index so we can use ON CONFLICT easily.
+-- Proper UNIQUE CONSTRAINT
 ALTER TABLE public.sales_summary 
 ADD CONSTRAINT sales_summary_unique_key UNIQUE (
     company_id, year, month, 
@@ -83,20 +82,20 @@ BEGIN
     DELETE FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month;
 
-    -- 2. BASE: Granular Records
+    -- 2. BASE: Granular Records (With Explicit Casting)
     INSERT INTO public.sales_summary (
         company_id, year, month, division_id, team_id, staff_id, category_id, customer_name, item_name, performance
     )
     SELECT 
         p_company_id, p_year, p_month, 
-        t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name,
+        t.division_id::UUID, r.team_id::UUID, r.staff_id::UUID, r.category_id::UUID, r.customer_name, r.item_name,
         SUM(r.amount)
     FROM public.sales_records r
     JOIN public.sales_teams t ON r.team_id = t.id
     WHERE r.company_id = p_company_id AND r.sales_date BETWEEN v_start_date AND v_end_date
     GROUP BY t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name;
 
-    -- 3. CALCULATE AGGREGATES (with Anti-Duplicate check)
+    -- 3. CALCULATE AGGREGATES
     
     -- Company Total
     INSERT INTO public.sales_summary (company_id, year, month, performance)
@@ -107,7 +106,7 @@ BEGIN
 
     -- Division Totals
     INSERT INTO public.sales_summary (company_id, year, month, division_id, performance)
-    SELECT p_company_id, p_year, p_month, division_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, division_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND team_id IS NOT NULL
     AND division_id IS NOT NULL
@@ -116,7 +115,7 @@ BEGIN
 
     -- Team Totals
     INSERT INTO public.sales_summary (company_id, year, month, team_id, performance)
-    SELECT p_company_id, p_year, p_month, team_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, team_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND staff_id IS NOT NULL
     AND team_id IS NOT NULL
@@ -125,7 +124,7 @@ BEGIN
 
     -- Staff Totals
     INSERT INTO public.sales_summary (company_id, year, month, staff_id, performance)
-    SELECT p_company_id, p_year, p_month, staff_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, staff_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
     AND staff_id IS NOT NULL
@@ -134,7 +133,7 @@ BEGIN
 
     -- Category Totals
     INSERT INTO public.sales_summary (company_id, year, month, category_id, performance)
-    SELECT p_company_id, p_year, p_month, category_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, category_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
     AND category_id IS NOT NULL
@@ -143,7 +142,7 @@ BEGIN
 
     -- Staff per Category 
     INSERT INTO public.sales_summary (company_id, year, month, staff_id, category_id, performance)
-    SELECT p_company_id, p_year, p_month, staff_id, category_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, staff_id::UUID, category_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
     AND staff_id IS NOT NULL AND category_id IS NOT NULL
@@ -151,28 +150,24 @@ BEGIN
     ON CONFLICT ON CONSTRAINT sales_summary_unique_key DO UPDATE SET performance = EXCLUDED.performance;
 
     -- 4. ATTACH GOALS
-    -- Team Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
     FROM public.sales_targets t
     WHERE s.team_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'TEAM'
     AND s.staff_id IS NULL AND s.customer_name IS NULL;
 
-    -- Staff Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
     FROM public.sales_targets t
     WHERE s.staff_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'STAFF'
     AND s.customer_name IS NULL;
 
-    -- Category Goals
     UPDATE public.sales_summary s
     SET goal = t.target_amount
     FROM public.sales_targets t
     WHERE s.category_id = t.entity_id AND s.year = t.year AND s.month = t.month AND t.entity_type = 'CATEGORY'
     AND s.staff_id IS NULL AND s.customer_name IS NULL;
 
-    -- Company Total Goal (Sum of TEAM goals)
     UPDATE public.sales_summary
     SET goal = (SELECT SUM(goal) FROM public.sales_summary WHERE company_id = p_company_id AND year = p_year AND month = p_month AND team_id IS NOT NULL AND staff_id IS NULL)
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND division_id IS NULL AND category_id IS NULL;
@@ -182,7 +177,7 @@ BEGIN
     SET expected_performance = CASE WHEN v_progress_limit > 0 THEN (performance / v_progress_limit) ELSE 0 END
     WHERE company_id = p_company_id AND year = p_year AND month = p_month;
 
-    -- 6. ATTACH LAST YEAR PERFORMANCE (Simplified)
+    -- 6. ATTACH LAST YEAR PERFORMANCE
     UPDATE public.sales_summary s
     SET ly_performance = (
         SELECT COALESCE(SUM(amount), 0) FROM public.sales_records 
