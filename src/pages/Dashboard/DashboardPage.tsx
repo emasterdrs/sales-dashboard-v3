@@ -124,7 +124,7 @@ const DashboardPage: React.FC = () => {
     });
   }, [parseNum]);
 
-  const refreshDrillDownData = useCallback(async () => {
+  const refreshDrillDownData = useCallback(async (wdTotal: number, wdCurrent: number) => {
     if (!profile?.company_id) return;
     try {
       let query = supabase.from('sales_summary')
@@ -163,7 +163,7 @@ const DashboardPage: React.FC = () => {
       const namesMap = new Map<string, string>();
       (nameData || []).forEach(n => namesMap.set(n.id, n.name));
 
-      const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
+      const progressLimit = wdTotal > 0 ? (wdCurrent / wdTotal) : 0;
       const formatted: DashboardData[] = rawList.map(s => {
         const perfVal = parseNum(s.performance);
         let compareVal = 0;
@@ -201,7 +201,7 @@ const DashboardPage: React.FC = () => {
        const error = e as Error;
        showNotify(`연관 데이터 조회 실패: ${error.message}`, 'error');
     }
-  }, [profile?.company_id, queryState.year, queryState.month, viewMode, currentLevel, selectedIds, analysisMode, workingDays, formatValue, showNotify]);
+  }, [profile?.company_id, queryState.year, queryState.month, viewMode, currentLevel, selectedIds, analysisMode, formatValue, showNotify, parseNum]);
 
   const loadDashboardData = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -261,21 +261,30 @@ const DashboardPage: React.FC = () => {
       });
       setTrendData(monthMap);
 
-      await refreshDrillDownData();
+      await refreshDrillDownData(totalWD, currentWD);
     } catch (err: unknown) {
       const error = err as Error;
       console.error('❌ [VODA 대시보드] 로딩 에러:', error);
       showNotify(`데이터 로딩 오류: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
-      // Fail-safe: Ensure we don't stay in loading state even if async parts are tricky
-      setTimeout(() => setIsLoading(false), 300);
     }
-  }, [profile?.company_id, queryState.year, queryState.month, formatValue, loadMetrics, showNotify, refreshDrillDownData]);
+  }, [profile?.company_id, queryState.year, queryState.month, formatValue, loadMetrics, showNotify, refreshDrillDownData, parseNum]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    // Initial mount only or manual Search button click
+    const timerId = setTimeout(() => {
+        loadDashboardData();
+    }, 100);
+    return () => clearTimeout(timerId);
+  }, [queryState.year, queryState.month, profile?.company_id, loadDashboardData]);
+
+  // Handle drill down logic without re-triggering full dashboard refresh implicitly
+  useEffect(() => {
+    if (!isLoading) {
+        refreshDrillDownData(workingDays.total, workingDays.current);
+    }
+  }, [viewMode, currentLevel, selectedIds, analysisMode, refreshDrillDownData]);
 
   const handleSearchCommit = () => {
     setQueryState({ ...tempState });
@@ -348,7 +357,7 @@ const DashboardPage: React.FC = () => {
       <header className={styles.controlTower}>
         <div className={styles.leftGroup}>
            <div className={styles.mainTitleArea}>
-             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.5.1</span></h1>
+             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.5.2</span></h1>
              <p>{queryState.year}년 {queryState.month}월 통합 분석 리포트</p>
            </div>
            <div className={styles.viewSwitcher}>
