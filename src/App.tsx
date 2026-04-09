@@ -19,6 +19,7 @@ import InquiryPage from './pages/Support/InquiryPage';
 import CompanyApprovalPage from './pages/Admin/CompanyApprovalPage';
 import UserManagementPage from './pages/Admin/UserManagementPage';
 import SuperAdminDashboard from './pages/Admin/SuperAdminDashboard';
+import ExcelAnalysisPage from './pages/ExcelAnalysis/ExcelAnalysisPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './index.css';
 
@@ -87,6 +88,7 @@ const AuthWrapper: React.FC = () => {
       
       {/* Unified Dashboard Route */}
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/excel-analysis" element={<ProtectedRoute><ExcelAnalysisPage /></ProtectedRoute>} />
       
       {/* Support Routes */}
       <Route path="/support/inquiry" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />

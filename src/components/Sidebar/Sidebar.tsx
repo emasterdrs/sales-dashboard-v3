@@ -13,6 +13,7 @@ import {
   Database as DatabaseIcon,
   GripVertical,
   Zap,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 import { Link, useLocation } from 'react-router-dom';
@@ -84,6 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
       title: "데이터 분석",
       items: [
         { icon: LayoutDashboard, label: "통합 대시보드", path: "/dashboard" },
+        { icon: FileSpreadsheet, label: "간편 엑셀 분석", path: "/excel-analysis" },
       ]
     });
   }
