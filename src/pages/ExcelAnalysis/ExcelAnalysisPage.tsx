@@ -174,6 +174,7 @@ const ExcelAnalysisPage: React.FC = () => {
     setIsSaving(true);
     setUploadProgress(0);
     
+    let latestLocalMap = { ...orgMap };
     try {
       // 1. 해당 월에 이미 데이터가 있는지 확인하고 삭제 (덮어쓰기 로직)
       const startDate = `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`;
@@ -191,7 +192,6 @@ const ExcelAnalysisPage: React.FC = () => {
 
       const chunkSize = 5000;
       const totalChunks = Math.ceil(data.length / chunkSize);
-      const localMap = { ...orgMap };
 
       for (let i = 0; i < totalChunks; i++) {
         const chunkRaw = data.slice(i * chunkSize, (i + 1) * chunkSize);
@@ -199,28 +199,28 @@ const ExcelAnalysisPage: React.FC = () => {
 
         for (const row of chunkRaw) {
           // 이름 -> ID 매핑 및 부재시 자동 생성
-          let divId = localMap.divisions[row._processedDiv];
+          let divId = latestLocalMap.divisions[row._processedDiv];
           if (!divId && row._processedDiv && row._processedDiv !== '-') {
             const { data: nDiv } = await supabase.from('sales_divisions').insert({ company_id: profile.company_id, name: row._processedDiv }).select();
-            if (nDiv?.[0]) { divId = nDiv[0].id; localMap.divisions[row._processedDiv] = divId; }
+            if (nDiv?.[0]) { divId = nDiv[0].id; latestLocalMap.divisions[row._processedDiv] = divId; }
           }
 
-          let teamId = localMap.teams[`${divId}_${row._processedTeam}`];
+          let teamId = latestLocalMap.teams[`${divId}_${row._processedTeam}`];
           if (!teamId && divId && row._processedTeam && row._processedTeam !== '-') {
             const { data: nTeam } = await supabase.from('sales_teams').insert({ company_id: profile.company_id, division_id: divId, name: row._processedTeam }).select();
-            if (nTeam?.[0]) { teamId = nTeam[0].id; localMap.teams[`${divId}_${row._processedTeam}`] = teamId; }
+            if (nTeam?.[0]) { teamId = nTeam[0].id; latestLocalMap.teams[`${divId}_${row._processedTeam}`] = teamId; }
           }
 
-          let staffId = localMap.staff[`${teamId}_${row._processedStaff}`];
+          let staffId = latestLocalMap.staff[`${teamId}_${row._processedStaff}`];
           if (!staffId && teamId && row._processedStaff && row._processedStaff !== '미배정') {
             const { data: nStaff } = await supabase.from('sales_staff').insert({ team_id: teamId, name: row._processedStaff }).select();
-            if (nStaff?.[0]) { staffId = nStaff[0].id; localMap.staff[`${teamId}_${row._processedStaff}`] = staffId; }
+            if (nStaff?.[0]) { staffId = nStaff[0].id; latestLocalMap.staff[`${teamId}_${row._processedStaff}`] = staffId; }
           }
 
-          let catId = localMap.categories[String(row['카테고리'] || '미분류')];
+          let catId = latestLocalMap.categories[String(row['카테고리'] || '미분류')];
           if (!catId && row['카테고리']) {
              const { data: nCat } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: String(row['카테고리']) }).select();
-             if (nCat?.[0]) { catId = nCat[0].id; localMap.categories[String(row['카테고리'])] = catId; }
+             if (nCat?.[0]) { catId = nCat[0].id; latestLocalMap.categories[String(row['카테고리'])] = catId; }
           }
 
           chunkToInsert.push({
@@ -255,7 +255,7 @@ const ExcelAnalysisPage: React.FC = () => {
       showNotify(`서버 저장 실패: ${err.message}`, 'error');
     } finally {
       setIsSaving(false);
-      setOrgMap(localMap);
+      setOrgMap(latestLocalMap);
     }
   };
 
@@ -278,29 +278,30 @@ const ExcelAnalysisPage: React.FC = () => {
             {notification.message}
           </div>
         )}
-            {data.length > 0 && (
-              <div className={styles.actionGroup}>
-                {isSuccess ? (
-                  <button 
-                    className={styles.dashboardBtn} 
-                    onClick={() => navigate('/dashboard')}
-                  >
-                    데이터 확인하러 가기
-                    <ArrowRight size={18} />
-                  </button>
-                ) : (
-                  <button 
-                    className={styles.saveBtn} 
-                    onClick={handleSaveToServer}
-                    disabled={isSaving}
-                  >
-                    <Save size={18} />
-                    {isSaving ? `저장 중 (${uploadProgress}%)` : '서버에 그대로 저장하기'}
-                  </button>
-                )}
-              </div>
-            )}
-            <label className={styles.uploadBtn}>
+        <div className={styles.actions}>
+          {data.length > 0 && (
+            <div className={styles.actionGroup}>
+              {isSuccess ? (
+                <button 
+                  className={styles.dashboardBtn} 
+                  onClick={() => navigate('/dashboard')}
+                >
+                  데이터 확인하러 가기
+                  <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button 
+                  className={styles.saveBtn} 
+                  onClick={handleSaveToServer}
+                  disabled={isSaving}
+                >
+                  <Save size={18} />
+                  {isSaving ? `저장 중 (${uploadProgress}%)` : '서버에 그대로 저장하기'}
+                </button>
+              )}
+            </div>
+          )}
+          <label className={styles.uploadBtn}>
             <Upload size={18} />
             엑셀 파일 불러오기
             <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} hidden />

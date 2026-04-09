@@ -38,7 +38,11 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, path, isAc
   </Link>
 );
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onPathChange?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ onPathChange }) => {
   const location = useLocation();
   const { profile, signOut } = useAuth();
 
@@ -115,6 +119,7 @@ const Sidebar: React.FC = () => {
                 label={item.label}
                 path={item.path}
                 isActive={location.pathname === item.path}
+                onClick={onPathChange}
               />
             ))}
           </div>
