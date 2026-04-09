@@ -1,100 +1,66 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import MainLayout from './layouts/MainLayout';
-import LoginPage from './pages/Auth/LoginPage';
-import SignUpPage from './pages/Auth/SignUpPage';
-import AuthCallback from './pages/Auth/AuthCallback';
-import EmailConfirmPage from './pages/Auth/EmailConfirmPage';
-import RequestResetPassword from './pages/Auth/RequestResetPassword';
-import UpdatePasswordPage from './pages/Auth/UpdatePasswordPage';
-import RegisterCompanyPage from './pages/Auth/RegisterCompanyPage';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Header from './components/Header/Header';
+import Sidebar from './components/Sidebar/Sidebar';
 import DashboardPage from './pages/Dashboard/DashboardPage';
-import WorkingDaysPage from './pages/Settings/WorkingDaysPage';
-import OrgManagementPage from './pages/Settings/OrgManagementPage';
-import SortManagementPage from './pages/Settings/SortManagementPage';
-import CategoryManagementPage from './pages/Settings/CategoryManagementPage';
-import DataUploadPage from './pages/Settings/DataUploadPage';
-import TargetManagementPage from './pages/Settings/TargetManagementPage';
+import OrgManagementPage from './pages/Admin/OrgManagementPage';
+import TargetManagementPage from './pages/Admin/TargetManagementPage';
+import DataUploadPage from './pages/Admin/DataUploadPage';
+import WorkingDaysPage from './pages/Admin/WorkingDaysPage';
+import SortManagementPage from './pages/Admin/SortManagementPage';
+import CategoryManagementPage from './pages/Admin/CategoryManagementPage';
+import LoginPage from './pages/Auth/LoginPage';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
+import AdminRoute from './components/Auth/AdminRoute';
 import InquiryPage from './pages/Support/InquiryPage';
-import CompanyApprovalPage from './pages/Admin/CompanyApprovalPage';
 import UserManagementPage from './pages/Admin/UserManagementPage';
-import SuperAdminDashboard from './pages/Admin/SuperAdminDashboard';
 import ExcelAnalysisPage from './pages/ExcelAnalysis/ExcelAnalysisPage';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './index.css';
-
-// Protected Route Component for Auth and Company Verification
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div className="loading-screen">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  return <MainLayout>{children}</MainLayout>;
-};
-
-// Admin Protection (Only for Admin/SuperAdmin)
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, effectiveRole, isLoading } = useAuth();
-  if (isLoading) return <div className="loading-screen">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  
-  const isAdmin = effectiveRole === 'COMPANY_ADMIN' || effectiveRole === 'SUPER_ADMIN';
-  if (!isAdmin) return <Navigate to="/" replace />;
-  
-  return <MainLayout>{children}</MainLayout>;
-};
+import SalesRecordsPage from './pages/SalesRecords/SalesRecordsPage';
+import styles from './App.module.css';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AuthWrapper />
-      </BrowserRouter>
-    </AuthProvider>
-  );
-};
-
-const AuthWrapper: React.FC = () => {
-  const { effectiveRole } = useAuth();
-  
-  return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/auth/confirm" element={<EmailConfirmPage />} />
-      <Route path="/auth/reset" element={<RequestResetPassword />} />
-      <Route path="/update-password" element={<UpdatePasswordPage />} />
-      <Route path="/register-company" element={<RegisterCompanyPage />} />
-      
-      {/* Main Routes */}
-      <Route path="/" element={
-        <ProtectedRoute>
-          {effectiveRole === 'SUPER_ADMIN' ? <Navigate to="/mng-voda-8a2b" replace /> : <Navigate to="/dashboard" replace />}
-        </ProtectedRoute>
-      } />
-      
-      {/* Super Admin Dashboard (Platform Admin) */}
-      <Route path="/mng-voda-8a2b" element={<ProtectedRoute>{effectiveRole === 'SUPER_ADMIN' ? <SuperAdminDashboard /> : <Navigate to="/" replace />}</ProtectedRoute>} />
-      <Route path="/mng-voda-8a2b/companies" element={<ProtectedRoute>{effectiveRole === 'SUPER_ADMIN' ? <CompanyApprovalPage /> : <Navigate to="/" replace />}</ProtectedRoute>} />
-      <Route path="/mng-voda-8a2b/users" element={<ProtectedRoute>{effectiveRole === 'SUPER_ADMIN' ? <UserManagementPage /> : <Navigate to="/" replace />}</ProtectedRoute>} />
-      
-      {/* Obfuscated Company Admin Routes (Company Management) */}
-      <Route path="/adm-s-2s9k2/org" element={<AdminRoute><OrgManagementPage /></AdminRoute>} />
-      <Route path="/adm-s-2s9k2/sort" element={<AdminRoute><SortManagementPage /></AdminRoute>} />
-      <Route path="/adm-s-2s9k2/targets" element={<AdminRoute><TargetManagementPage /></AdminRoute>} />
-      <Route path="/adm-s-2s9k2/upload" element={<AdminRoute><DataUploadPage /></AdminRoute>} />
-      <Route path="/adm-s-2s9k2/days" element={<AdminRoute><WorkingDaysPage /></AdminRoute>} />
-      <Route path="/adm-s-2s9k2/types" element={<AdminRoute><CategoryManagementPage /></AdminRoute>} />
-      
-      {/* Unified Dashboard Route */}
-      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/excel-analysis" element={<ProtectedRoute><ExcelAnalysisPage /></ProtectedRoute>} />
-      
-      {/* Support Routes */}
-      <Route path="/support/inquiry" element={<ProtectedRoute><InquiryPage /></ProtectedRoute>} />
-      
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <div className={styles.appContainer}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <div className={styles.layout}>
+                <Sidebar />
+                <main className={styles.mainContent}>
+                  <Header />
+                  <div className={styles.pageContent}>
+                    <Routes>
+                      <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/excel-analysis" element={<ExcelAnalysisPage />} />
+                      <Route path="/sales-records" element={<SalesRecordsPage />} />
+                      
+                      {/* Admin Routes */}
+                      <Route path="/adm-s-2s9k2/days" element={<AdminRoute><WorkingDaysPage /></AdminRoute>} />
+                      <Route path="/adm-s-2s9k2/org" element={<AdminRoute><OrgManagementPage /></AdminRoute>} />
+                      <Route path="/adm-s-2s9k2/sort" element={<AdminRoute><SortManagementPage /></AdminRoute>} />
+                      <Route path="/adm-s-2s9k2/targets" element={<AdminRoute><TargetManagementPage /></AdminRoute>} />
+                      <Route path="/adm-s-2s9k2/upload" element={<AdminRoute><DataUploadPage /></AdminRoute>} />
+                      <Route path="/adm-s-2s9k2/types" element={<AdminRoute><CategoryManagementPage /></AdminRoute>} />
+                      
+                      {/* Super Admin Routes */}
+                      <Route path="/mng-voda-8a2b/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
+                      
+                      {/* Support */}
+                      <Route path="/support/inquiry" element={<InquiryPage />} />
+                      
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    </Routes>
+                  </div>
+                </main>
+              </div>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </div>
   );
 };
 

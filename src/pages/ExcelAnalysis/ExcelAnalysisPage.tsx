@@ -8,7 +8,9 @@ import {
   Upload,
   Table as TableIcon,
   Save,
+  ArrowRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './ExcelAnalysisPage.module.css';
@@ -31,6 +33,7 @@ interface ExcelSalesRecord {
 
 const ExcelAnalysisPage: React.FC = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [queryState] = useState({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1
@@ -52,12 +55,52 @@ const ExcelAnalysisPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const parseNumLocal = (val: any): number => {
     if (val === undefined || val === null) return 0;
     const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : Number(val);
     return isNaN(num) ? 0 : num;
   };
+
+  const [orgMap, setOrgMap] = useState({
+    divisions: {} as Record<string, string>,
+    teams: {} as Record<string, string>,
+    staff: {} as Record<string, string>,
+    categories: {} as Record<string, string>
+  });
+
+  const fetchOrgMaps = async () => {
+    if (!profile?.company_id) return;
+    try {
+      const [divs, teams, cats] = await Promise.all([
+        supabase.from('sales_divisions').select('id, name').eq('company_id', profile.company_id),
+        supabase.from('sales_teams').select('id, name, division_id').eq('company_id', profile.company_id),
+        supabase.from('product_categories').select('id, name').eq('company_id', profile.company_id)
+      ]);
+      const staff = await supabase.from('sales_staff').select('id, name, team_id');
+      
+      const dMap: Record<string, string> = {}; 
+      divs.data?.forEach(d => dMap[d.name.trim()] = d.id);
+      
+      const tMap: Record<string, string> = {}; 
+      teams.data?.forEach(t => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
+      
+      const sMap: Record<string, string> = {}; 
+      staff.data?.forEach(s => sMap[`${s.team_id}_${s.name.trim()}`] = s.id);
+      
+      const cMap: Record<string, string> = {}; 
+      cats.data?.forEach(c => cMap[c.name.trim()] = c.id);
+
+      setOrgMap({ divisions: dMap, teams: tMap, staff: sMap, categories: cMap });
+    } catch (e) {
+      console.error('Org Map Fetch Error:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchOrgMaps();
+  }, [profile?.company_id]);
 
   const processData = (raw: ExcelSalesRecord[]) => {
     let total = 0;
@@ -132,40 +175,87 @@ const ExcelAnalysisPage: React.FC = () => {
     setUploadProgress(0);
     
     try {
-      const chunkSize = 10000;
-      const totalChunks = Math.ceil(data.length / chunkSize);
+      // 1. 해당 월에 이미 데이터가 있는지 확인하고 삭제 (덮어쓰기 로직)
+      const startDate = `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`;
+      const lastDay = new Date(queryState.year, queryState.month, 0).getDate();
+      const endDate = `${queryState.year}-${String(queryState.month).padStart(2, '0')}-${lastDay}`;
       
-      for (let i = 0; i < totalChunks; i++) {
-        const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize).map(row => ({
-          company_id: profile.company_id,
-          division_name: String(row._processedDiv || ''),
-          team_name: String(row._processedTeam || ''),
-          staff_name: String(row._processedStaff || ''),
-          customer_name: String(row._processedCust || ''),
-          item_name: String(row._processedItem || ''),
-          amount: Number(row._processedAmount || 0),
-          sales_date: row._processedDate,
-          category_name: String(row['카테고리'] || '미분류')
-        }));
+      const { error: deleteError } = await supabase
+        .from('sales_records')
+        .delete()
+        .eq('company_id', profile.company_id)
+        .gte('sales_date', startDate)
+        .lte('sales_date', endDate);
+        
+      if (deleteError) throw deleteError;
 
-        const { error } = await supabase.from('sales_records').insert(chunk);
+      const chunkSize = 5000;
+      const totalChunks = Math.ceil(data.length / chunkSize);
+      const localMap = { ...orgMap };
+
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkRaw = data.slice(i * chunkSize, (i + 1) * chunkSize);
+        const chunkToInsert = [];
+
+        for (const row of chunkRaw) {
+          // 이름 -> ID 매핑 및 부재시 자동 생성
+          let divId = localMap.divisions[row._processedDiv];
+          if (!divId && row._processedDiv && row._processedDiv !== '-') {
+            const { data: nDiv } = await supabase.from('sales_divisions').insert({ company_id: profile.company_id, name: row._processedDiv }).select();
+            if (nDiv?.[0]) { divId = nDiv[0].id; localMap.divisions[row._processedDiv] = divId; }
+          }
+
+          let teamId = localMap.teams[`${divId}_${row._processedTeam}`];
+          if (!teamId && divId && row._processedTeam && row._processedTeam !== '-') {
+            const { data: nTeam } = await supabase.from('sales_teams').insert({ company_id: profile.company_id, division_id: divId, name: row._processedTeam }).select();
+            if (nTeam?.[0]) { teamId = nTeam[0].id; localMap.teams[`${divId}_${row._processedTeam}`] = teamId; }
+          }
+
+          let staffId = localMap.staff[`${teamId}_${row._processedStaff}`];
+          if (!staffId && teamId && row._processedStaff && row._processedStaff !== '미배정') {
+            const { data: nStaff } = await supabase.from('sales_staff').insert({ team_id: teamId, name: row._processedStaff }).select();
+            if (nStaff?.[0]) { staffId = nStaff[0].id; localMap.staff[`${teamId}_${row._processedStaff}`] = staffId; }
+          }
+
+          let catId = localMap.categories[String(row['카테고리'] || '미분류')];
+          if (!catId && row['카테고리']) {
+             const { data: nCat } = await supabase.from('product_categories').insert({ company_id: profile.company_id, name: String(row['카테고리']) }).select();
+             if (nCat?.[0]) { catId = nCat[0].id; localMap.categories[String(row['카테고리'])] = catId; }
+          }
+
+          chunkToInsert.push({
+            company_id: profile.company_id,
+            team_id: teamId || null,
+            staff_id: staffId || null,
+            category_id: catId || null,
+            customer_name: String(row._processedCust || ''),
+            item_name: String(row._processedItem || ''),
+            amount: Number(row._processedAmount || 0),
+            sales_date: row._processedDate
+          });
+        }
+
+        const { error } = await supabase.from('sales_records').insert(chunkToInsert);
         if (error) throw error;
         
         setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
       }
 
+      // 서버측 캐시 및 요약 데이터 강제 갱신
       await supabase.rpc('refresh_sales_summary', { 
         p_company_id: profile.company_id, 
         p_year: queryState.year, 
         p_month: queryState.month 
       });
 
-      showNotify(`${data.length.toLocaleString()}건의 데이터가 서버에 안전하게 저장되었습니다.`, 'success');
+      showNotify(`${data.length.toLocaleString()}건의 데이터가 저장되었습니다. 대시보드에서 즉시 확인 가능합니다.`, 'success');
+      setIsSuccess(true);
     } catch (err: any) {
       console.error(err);
       showNotify(`서버 저장 실패: ${err.message}`, 'error');
     } finally {
       setIsSaving(false);
+      setOrgMap(localMap);
     }
   };
 
@@ -188,18 +278,29 @@ const ExcelAnalysisPage: React.FC = () => {
             {notification.message}
           </div>
         )}
-        <div className={styles.actions}>
-          {data.length > 0 && (
-            <button 
-              className={styles.saveBtn} 
-              onClick={handleSaveToServer}
-              disabled={isSaving}
-            >
-              <Save size={18} />
-              {isSaving ? `저장 중 (${uploadProgress}%)` : '서버에 그대로 저장하기'}
-            </button>
-          )}
-          <label className={styles.uploadBtn}>
+            {data.length > 0 && (
+              <div className={styles.actionGroup}>
+                {isSuccess ? (
+                  <button 
+                    className={styles.dashboardBtn} 
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    데이터 확인하러 가기
+                    <ArrowRight size={18} />
+                  </button>
+                ) : (
+                  <button 
+                    className={styles.saveBtn} 
+                    onClick={handleSaveToServer}
+                    disabled={isSaving}
+                  >
+                    <Save size={18} />
+                    {isSaving ? `저장 중 (${uploadProgress}%)` : '서버에 그대로 저장하기'}
+                  </button>
+                )}
+              </div>
+            )}
+            <label className={styles.uploadBtn}>
             <Upload size={18} />
             엑셀 파일 불러오기
             <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} hidden />
