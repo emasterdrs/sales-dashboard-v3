@@ -64,21 +64,38 @@ const ExcelAnalysisPage: React.FC = () => {
     const customerMap: Record<string, number> = {};
     const staffMap: Record<string, number> = {};
 
-    raw.forEach(row => {
-      const amount = parseNumLocal(row['매출금액'] || row['판매금액'] || 0);
+    // 엑셀 헤더 유연한 매칭을 위한 도우미 함수
+    const getVal = (row: any, keys: string[]) => {
+      for (const key of keys) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== '') return row[key];
+      }
+      return '';
+    };
+
+    const formatted = raw.map(row => {
+      const amount = parseNumLocal(getVal(row, ['매출금액', '판매금액', '금액', '실적', '판매가', 'Amount', 'Price']));
+      const cust = String(getVal(row, ['매출처', '거래처', '고객사', 'Customer', 'Client']) || '기타');
+      const staff = String(getVal(row, ['담당자', '성명', '이름', 'Staff', 'Salesperson']) || '미배정');
+      
       total += amount;
-
-      const cust = row['매출처'] || '기타';
       customerMap[cust] = (customerMap[cust] || 0) + amount;
-
-      const staff = row['담당자'] || '미배정';
       staffMap[staff] = (staffMap[staff] || 0) + amount;
+
+      return {
+        ...row,
+        _processedAmount: amount,
+        _processedCust: cust,
+        _processedStaff: staff,
+        _processedDiv: String(getVal(row, ['사업부', '본부', 'Division', 'Dept']) || '-'),
+        _processedTeam: String(getVal(row, ['팀', '부서', 'Team', 'Group']) || '-'),
+        _processedItem: String(getVal(row, ['품목명', '제품명', '상품명', 'Item', 'Product']) || '-')
+      };
     });
 
     const topCust = Object.entries(customerMap).sort((a, b) => b[1] - a[1])[0] || ['', 0];
     const topStf = Object.entries(staffMap).sort((a, b) => b[1] - a[1])[0] || ['', 0];
 
-    setData(raw);
+    setData(formatted);
     setSummary({
       totalAmount: total,
       itemCount: raw.length,
@@ -119,12 +136,12 @@ const ExcelAnalysisPage: React.FC = () => {
       for (let i = 0; i < totalChunks; i++) {
         const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize).map(row => ({
           company_id: profile.company_id,
-          division_name: String(row['사업부'] || ''),
-          team_name: String(row['팀'] || ''),
-          staff_name: String(row['담당자'] || ''),
-          customer_name: String(row['매출처'] || ''),
-          item_name: String(row['품목명'] || ''),
-          amount: parseNumLocal(row['매출금액'] || row['판매금액'] || 0),
+          division_name: String(row._processedDiv || ''),
+          team_name: String(row._processedTeam || ''),
+          staff_name: String(row._processedStaff || ''),
+          customer_name: String(row._processedCust || ''),
+          item_name: String(row._processedItem || ''),
+          amount: Number(row._processedAmount || 0),
           sales_date: `${queryState.year}-${String(queryState.month).padStart(2, '0')}-01`,
           category_name: '미분류'
         }));
@@ -250,12 +267,12 @@ const ExcelAnalysisPage: React.FC = () => {
                 <tbody>
                   {data.slice(0, 100).map((row, idx) => (
                     <tr key={idx}>
-                      <td>{row['사업부'] || '-'}</td>
-                      <td>{row['팀'] || '-'}</td>
-                      <td>{row['담당자'] || '-'}</td>
-                      <td>{row['매출처'] || '-'}</td>
-                      <td>{row['품목명'] || '-'}</td>
-                      <td className={styles.alignRight}>{(Number(row['매출금액'] || row['판매금액'] || 0)).toLocaleString()}원</td>
+                      <td>{row._processedDiv}</td>
+                      <td>{row._processedTeam}</td>
+                      <td>{row._processedStaff}</td>
+                      <td>{row._processedCust}</td>
+                      <td>{row._processedItem}</td>
+                      <td className={styles.alignRight}>{(Number(row._processedAmount)).toLocaleString()}원</td>
                     </tr>
                   ))}
                   {data.length > 100 && (
