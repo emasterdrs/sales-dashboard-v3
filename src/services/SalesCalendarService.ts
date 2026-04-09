@@ -52,50 +52,43 @@ export class SalesCalendarService {
 
   /**
    * Universal Date Normalizer (v2.3)
-   * Converts any raw input (Excel serial, various strings, ISO Date) to YYYY-MM-DD.
+   * Converts any raw input to YYYY-MM-DD.
    */
-  static parseUserDate(dateValue: any): string | null {
+  static parseUserDate(dateValue: unknown): string | null {
     if (dateValue === null || dateValue === undefined || String(dateValue).trim() === '') return null;
 
-    // 1. ArrayBuffer or Buffer (Unlikely here, but for safety)
     if (typeof dateValue === 'object' && dateValue instanceof Date) {
       if (isValid(dateValue)) return format(dateValue, 'yyyy-MM-dd');
       return null;
     }
 
-    // 2. Excel Serial Number (e.g. 42736 -> 2017-01-01)
     if (typeof dateValue === 'number' || (typeof dateValue === 'string' && /^\d{5}$/.test(dateValue))) {
       try {
         const serial = Number(dateValue);
         const dateObj = XLSX.SSF.parse_date_code(serial);
         return `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
-      } catch (e) {
-        // Continue to other parsers
+      } catch {
+        // Continue
       }
     }
 
-    // 3. String Clean-up & Common Formats
     const rawStr = String(dateValue).trim().replace(/\s/g, '');
     
-    // YYYYMMDD (Compact)
     if (/^\d{8}$/.test(rawStr)) {
       return `${rawStr.slice(0,4)}-${rawStr.slice(4,6)}-${rawStr.slice(6,8)}`;
     }
 
-    // YYYY-MM-DD or YYYY.MM.DD or YYYY/MM/DD
     const delimiters = rawStr.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
     if (delimiters) {
       return `${delimiters[1]}-${delimiters[2].padStart(2, '0')}-${delimiters[3].padStart(2, '0')}`;
     }
 
-    // YY/MM/DD or YY-MM-DD
     const shortMatch = rawStr.match(/^(\d{2})[./-](\d{1,2})[./-](\d{1,2})/);
     if (shortMatch) {
       const yearPrefix = parseInt(shortMatch[1]) > 50 ? '19' : '20';
       return `${yearPrefix}${shortMatch[1]}-${shortMatch[2].padStart(2, '0')}-${shortMatch[3].padStart(2, '0')}`;
     }
 
-    // Fallback using date-fns with common formats
     const normalized = rawStr.replace(/[./]/g, '-');
     const formats = ['yyyy-MM-dd', 'yyyy-M-d', 'MM-dd-yyyy', 'M-d-yyyy'];
     for (const f of formats) {
@@ -104,7 +97,9 @@ export class SalesCalendarService {
         if (isValid(parsed) && parsed.getFullYear() > 1950 && parsed.getFullYear() < 2100) {
           return format(parsed, 'yyyy-MM-dd');
         }
-      } catch (e) {}
+      } catch {
+          // Continue
+      }
     }
 
     return null;

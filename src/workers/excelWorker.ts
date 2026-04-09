@@ -16,10 +16,10 @@ self.onmessage = async (e: MessageEvent) => {
     
     // 1. 지능형 헤더 탐색 (상단 20행 스캔)
     const scanLimit = Math.min(fullRange.s.r + 20, fullRange.e.r);
-    const scanRows: any[][] = (XLSX.utils.sheet_to_json(ws, { 
+    const scanRows = XLSX.utils.sheet_to_json(ws, { 
       header: 1, 
       range: { s: { r: fullRange.s.r, c: fullRange.s.c }, e: { r: scanLimit, c: fullRange.e.c } } 
-    }) as any[][]);
+    }) as unknown[][];
 
     // [최우선 디버깅] 헤더 탐색 전 원본 데이터를 통째로 메인 스레드에 쏩니다.
     self.postMessage({ type: 'debug_rows', data: scanRows.slice(0, 5) });
@@ -54,7 +54,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
 
     // 2. 헤더 확정 및 메인 전송
-    const headers: string[] = scanRows[headerRowIdx - fullRange.s.r].map(h => String(h || '').replace(/\s+/g, ''));
+    const headers = (scanRows[headerRowIdx - fullRange.s.r] as unknown[]).map(h => String(h || '').replace(/\s+/g, ''));
     self.postMessage({ type: 'headers', data: headers });
 
     // 3. 데이터 청크 파싱 (헤더 다음 줄부터 시작)
@@ -63,10 +63,10 @@ self.onmessage = async (e: MessageEvent) => {
 
     for (let rStart = headerRowIdx + 1; rStart <= fullRange.e.r; rStart += CHUNK_SIZE) {
       const rEnd = Math.min(rStart + CHUNK_SIZE - 1, fullRange.e.r);
-      const chunk: any[][] = (XLSX.utils.sheet_to_json(ws, { 
+      const chunk = XLSX.utils.sheet_to_json(ws, { 
         header: 1, 
         range: { s: { r: rStart, c: fullRange.s.c }, e: { r: rEnd, c: fullRange.e.c } } 
-      }) as any[][]);
+      }) as unknown[][];
 
       const validChunk = chunk.filter(row => row.some(cell => String(cell || '').trim() !== ''));
       if (validChunk.length > 0) {
@@ -79,7 +79,8 @@ self.onmessage = async (e: MessageEvent) => {
 
     self.postMessage({ type: 'success' });
 
-  } catch (error: any) {
-    self.postMessage({ type: 'error', data: error.message });
+  } catch (error: unknown) {
+    const err = error as Error;
+    self.postMessage({ type: 'error', data: err.message });
   }
 };

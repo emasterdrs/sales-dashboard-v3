@@ -11,7 +11,7 @@ interface Breadcrumb {
 interface DrillDownTableProps {
   breadcrumbs: Breadcrumb[];
   onBreadcrumbClick: (level: number) => void;
-  data: any[];
+  data: Record<string, any>[];
   onRowClick: (id: string, name: string) => void;
   columns: { key: string; label: string; width?: string }[];
   isExpectedClosingOn: boolean;
@@ -37,7 +37,7 @@ const DrillDownTable: React.FC<DrillDownTableProps> = ({
               <Home size={14} />
             </button>
             {breadcrumbs.map((bc, idx) => (
-              <React.Fragment key={bc.id}>
+              <React.Fragment key={bc.id || idx}>
                 <ChevronRight size={14} className={styles.separator} />
                 <button 
                   className={styles.breadcrumbItem}
@@ -63,13 +63,13 @@ const DrillDownTable: React.FC<DrillDownTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
-              <React.Fragment key={row.id}>
+            {data.map((row, rowIdx) => (
+              <React.Fragment key={row.id || rowIdx}>
                 <tr className={styles.row} onClick={() => onRowClick(row.id, row.name)}>
                   {columns.map(col => (
                     <td 
                       key={col.key} 
-                      className={`${styles[col.key]} ${styles.cell}`}
+                      className={`${styles[col.key] || ''} ${styles.cell}`}
                     >
                       {row[col.key]}
                     </td>

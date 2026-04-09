@@ -4,7 +4,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { 
-  Building2, Layers, TrendingUp, Target, History, Calendar, Zap, Maximize2, Search, AlertCircle, CheckCircle2
+  Layers, TrendingUp, Target, History, Calendar, Zap, Maximize2, Search, Building2
 } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,19 +27,33 @@ interface Notification {
   type: 'success' | 'error';
 }
 
+interface SummaryRow {
+  performance?: number;
+  goal?: number;
+  ly_performance?: number;
+  ytd_performance?: number;
+  division_id?: string;
+  team_id?: string;
+  staff_id?: string;
+  category_id?: string;
+  customer_name?: string;
+  item_name?: string;
+  month?: number;
+  expected_performance?: number;
+  prev_performance?: number;
+}
+
 const DashboardPage: React.FC = () => {
   const { profile } = useAuth();
   const [viewMode, setViewMode] = useState<'TEAM' | 'TYPE'>('TEAM');
   const [analysisMode, setAnalysisMode] = useState<'GOAL' | 'YOY' | 'MOM' | 'YTD'>('GOAL');
   
-  // 1. 실제 쿼리에 사용될 '확정된' 상태
   const [queryState, setQueryState] = useState({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     unit: 'billion' as 'won' | 'million' | 'billion'
   });
 
-  // 2. 드롭다운에서 선택 중인 '임시' 상태
   const [tempState, setTempState] = useState({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -61,29 +75,29 @@ const DashboardPage: React.FC = () => {
     achievement: 0, growthYoY: 0, progressGap: 0, expectedTotal: 0, ytdPerf: 0, totalGoal: 0, totalPerf: 0, totalLyPerf: 0
   });
 
-  const [trendData, setTrendData] = useState<any[]>([]);
-  const [pieData, setPieData] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<{ month: string; performance: number }[]>([]);
+  const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
   const [displayData, setDisplayData] = useState<DashboardData[]>([]);
   const [isExpectedClosingOn, setIsExpectedClosingOn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<Notification | null>(null);
 
-  const showNotify = (message: string, type: 'success' | 'error' = 'error') => {
+  const showNotify = useCallback((message: string, type: 'success' | 'error' = 'error') => {
     setNotification({ message, type });
-  };
+  }, []);
 
-  const parseNum = (val: any): number => {
-    if (!val) return 0;
+  const parseNum = (val: string | number | null | undefined): number => {
+    if (val === undefined || val === null) return 0;
     const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : Number(val);
     return isNaN(num) ? 0 : num;
   };
 
-  const formatValue = (val: number) => {
+  const formatValue = useCallback((val: number) => {
     const num = Number(val);
     if (queryState.unit === 'billion') return (num / 100000000).toFixed(1);
     if (queryState.unit === 'million') return (num / 1000000).toLocaleString();
     return num.toLocaleString();
-  };
+  }, [queryState.unit]);
 
   const getUnitName = () => {
     if (queryState.unit === 'billion') return '억원';
@@ -91,81 +105,26 @@ const DashboardPage: React.FC = () => {
     return '원';
   };
 
-  // ✅ 데이터 핵심 로딩 함수 (조회 버튼 클릭 시 실행)
-  const loadDashboardData = useCallback(async () => {
-    if (!profile?.company_id) return;
-    setIsLoading(true);
-    try {
-      // 1. Company Global Summary (sales_summary 기반)
-      const { data: summaryRows, error: summaryErr } = await supabase
-        .from('sales_summary')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .eq('year', queryState.year)
-        .eq('month', queryState.month)
-        .is('division_id', null)
-        .is('category_id', null);
+  const loadMetrics = useCallback((summary: SummaryRow | null) => {
+    const perf = parseNum(summary?.performance);
+    const goal = parseNum(summary?.goal);
+    const lyPerf = parseNum(summary?.ly_performance);
+    const ytdPerf = parseNum(summary?.ytd_performance);
+    const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
 
-      if (summaryErr) throw summaryErr;
-      console.log("📊 [VODA 대시보드] 수신된 요약 데이터:", summaryRows);
-      
-      const summary = summaryRows?.[0];
+    setSummaryMetrics({
+      achievement: goal > 0 ? (perf / goal) * 100 : 0,
+      growthYoY: lyPerf > 0 ? ((perf - lyPerf) / lyPerf) * 100 : 0,
+      progressGap: perf - (goal * progressLimit),
+      expectedTotal: progressLimit > 0 ? (perf / progressLimit) : 0,
+      ytdPerf: ytdPerf,
+      totalGoal: goal,
+      totalPerf: perf,
+      totalLyPerf: lyPerf
+    });
+  }, [workingDays]);
 
-      // 2. 영업일수 로드
-      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month);
-      const wd = wdList?.[0];
-      const holidaysObj = wd?.holidays || [];
-      const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
-      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(queryState.year, queryState.month, parsedHolidays);
-      const currentWD = SalesCalendarService.getElapsedWorkingDays(queryState.year, queryState.month, new Date(), parsedHolidays);
-      setWorkingDays({ total: totalWD, current: currentWD }); 
-      const progressLimit = totalWD > 0 ? (currentWD / totalWD) : 0;
-
-      // 3. 메트릭 설정
-      const perf = parseNum(summary?.performance || 0);
-      const goal = parseNum(summary?.goal || 0);
-      const lyPerf = parseNum(summary?.ly_performance || 0);
-      const ytdPerf = parseNum(summary?.ytd_performance || 0);
-
-      setSummaryMetrics({
-        achievement: goal > 0 ? (perf / goal) * 100 : 0,
-        growthYoY: lyPerf > 0 ? ((perf - lyPerf) / lyPerf) * 100 : 0,
-        progressGap: perf - (goal * progressLimit),
-        expectedTotal: progressLimit > 0 ? (perf / progressLimit) : 0,
-        ytdPerf: ytdPerf,
-        totalGoal: goal,
-        totalPerf: perf,
-        totalLyPerf: lyPerf
-      });
-
-      // 4. 추이 차트
-      const { data: trendRows } = await supabase
-        .from('sales_summary')
-        .select('month, performance')
-        .eq('company_id', profile.company_id)
-        .eq('year', queryState.year)
-        .is('division_id', null)
-        .is('category_id', null)
-        .order('month', { ascending: true });
-
-      const monthMap = new Array(12).fill(0).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
-      (trendRows || []).forEach((t: any) => {
-          if (t.month >= 1 && t.month <= 12) monthMap[t.month - 1].performance = Number(formatValue(t.performance));
-      });
-      setTrendData(monthMap);
-
-      // 5. 상세/드릴다운 데이터 로드
-      await refreshDrillDownData();
-
-    } catch (err: any) {
-      console.error('❌ [VODA 대시보드] 로딩 에러:', err);
-      showNotify(`데이터 로딩 중 오류: ${err.message}`, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [profile?.company_id, queryState, viewMode, analysisMode, currentLevel, selectedIds]);
-
-  const refreshDrillDownData = async () => {
+  const refreshDrillDownData = useCallback(async () => {
     if (!profile?.company_id) return;
     try {
       let query = supabase.from('sales_summary')
@@ -187,11 +146,10 @@ const DashboardPage: React.FC = () => {
         else if (currentLevel === 3) query = query.eq('staff_id', selectedIds.staffId).eq('category_id', selectedIds.categoryId).eq('customer_name', selectedIds.customerName).not('item_name', 'is', null);
       }
 
-      const { data: rawList, error } = await query;
+      const { data, error } = await query;
       if (error) throw error;
-      console.log(`📋 [VODA 드릴다운] Level ${currentLevel} 데이터 수신:`, rawList);
+      const rawList = data as SummaryRow[];
 
-      // 이름 매핑을 위해 각 테이블 조회 (Left Join 효과)
       let nameTable = 'sales_divisions';
       if (viewMode === 'TEAM') {
         if (currentLevel === 1) nameTable = 'sales_teams';
@@ -203,10 +161,10 @@ const DashboardPage: React.FC = () => {
 
       const { data: nameData } = await supabase.from(nameTable).select('id, name');
       const namesMap = new Map<string, string>();
-      nameData?.forEach(n => namesMap.set(n.id, n.name));
+      (nameData || []).forEach(n => namesMap.set(n.id, n.name));
 
       const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
-      const formatted: DashboardData[] = (rawList || []).map(s => {
+      const formatted: DashboardData[] = rawList.map(s => {
         const perfVal = parseNum(s.performance);
         let compareVal = 0;
         if (analysisMode === 'GOAL') compareVal = parseNum(s.goal);
@@ -215,17 +173,19 @@ const DashboardPage: React.FC = () => {
         else if (analysisMode === 'YTD') compareVal = parseNum(s.ytd_performance);
         
         let name = '미분류/누락';
-        const targetId = viewMode === 'TEAM' ? (currentLevel === 0 ? s.division_id : (currentLevel === 1 ? s.team_id : s.staff_id)) : (currentLevel === 0 ? s.category_id : s.staff_id);
+        const targetId = viewMode === 'TEAM' 
+          ? (currentLevel === 0 ? s.division_id : (currentLevel === 1 ? s.team_id : s.staff_id)) 
+          : (currentLevel === 0 ? s.category_id : s.staff_id);
         
         if (currentLevel >= (viewMode === 'TEAM' ? 3 : 2)) name = s.customer_name || s.item_name || '알수없음';
-        else name = namesMap.get(targetId) || '기준정보누락';
+        else if (targetId) name = namesMap.get(targetId) || '기준정보누락';
 
         const achieveRate = compareVal > 0 ? (perfVal / compareVal) * 100 : 0;
         let gapVal = perfVal - compareVal;
         if (analysisMode === 'GOAL') gapVal = perfVal - (compareVal * progressLimit);
 
         return {
-          id: targetId || s.customer_name || s.item_name,
+          id: targetId || s.customer_name || s.item_name || Math.random().toString(),
           name,
           goal: formatValue(compareVal),
           performance: formatValue(perfVal),
@@ -237,31 +197,86 @@ const DashboardPage: React.FC = () => {
 
       setDisplayData(formatted);
       setPieData(formatted.slice(0, 10).map(d => ({ name: d.name, value: parseNum(d.performance) })));
-    } catch (e: any) {
-       showNotify(`연관 데이터 조회 실패: ${e.message}`, 'error');
+    } catch (e: unknown) {
+       const error = e as Error;
+       showNotify(`연관 데이터 조회 실패: ${error.message}`, 'error');
     }
-  };
+  }, [profile?.company_id, queryState.year, queryState.month, viewMode, currentLevel, selectedIds, analysisMode, workingDays, formatValue, showNotify]);
 
-  // 초기 렌더링 시 자동 1회 조회
+  const loadDashboardData = useCallback(async () => {
+    if (!profile?.company_id) return;
+    setIsLoading(true);
+    try {
+      const { data: summaryRows, error: summaryErr } = await supabase
+        .from('sales_summary')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .eq('year', queryState.year)
+        .eq('month', queryState.month)
+        .is('division_id', null)
+        .is('category_id', null);
+
+      if (summaryErr) throw summaryErr;
+      
+      const rows = summaryRows as SummaryRow[];
+      if (!rows || rows.length === 0) {
+        await supabase.rpc('refresh_sales_summary', { 
+          p_company_id: profile.company_id, 
+          p_year: queryState.year, 
+          p_month: queryState.month 
+        });
+        
+        const { data: retryRows } = await supabase.from('sales_summary').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month).is('division_id', null).is('category_id', null);
+        if (retryRows && retryRows.length > 0) {
+          loadMetrics(retryRows[0] as SummaryRow);
+        }
+      } else {
+        loadMetrics(rows[0]);
+      }
+
+      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month);
+      const wd = wdList?.[0];
+      const holidaysObj = wd?.holidays || [];
+      const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
+      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(queryState.year, queryState.month, parsedHolidays);
+      const currentWD = SalesCalendarService.getElapsedWorkingDays(queryState.year, queryState.month, new Date(), parsedHolidays);
+      setWorkingDays({ total: totalWD, current: currentWD }); 
+
+      const { data: trendRowsResult } = await supabase
+        .from('sales_summary')
+        .select('month, performance')
+        .eq('company_id', profile.company_id)
+        .eq('year', queryState.year)
+        .is('division_id', null)
+        .is('category_id', null)
+        .order('month', { ascending: true });
+
+      const trendRows = (trendRowsResult || []) as SummaryRow[];
+      const monthMap = new Array<{ month: string; performance: number }>(12).fill({ month: '', performance: 0 }).map((_, i) => ({ month: `${i + 1}월`, performance: 0 }));
+      trendRows.forEach((t) => {
+          if (t.month && t.month >= 1 && t.month <= 12) {
+              monthMap[t.month - 1].performance = Number(formatValue(t.performance || 0));
+          }
+      });
+      setTrendData(monthMap);
+
+      await refreshDrillDownData();
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('❌ [VODA 대시보드] 로딩 에러:', error);
+      showNotify(`데이터 로딩 오류: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [profile?.company_id, queryState.year, queryState.month, formatValue, loadMetrics, showNotify, refreshDrillDownData]);
+
   useEffect(() => {
     loadDashboardData();
-  }, [profile?.company_id]);
+  }, [loadDashboardData]);
 
-  // 분석 모드나 뷰 모드 바뀔 때는 자동 조회 (편의성)
-  useEffect(() => {
-    loadDashboardData();
-  }, [viewMode, analysisMode, currentLevel, selectedIds]);
-
-  // [조회] 버튼 클릭 핸들러
   const handleSearchCommit = () => {
     setQueryState({ ...tempState });
-    // setQueryState가 완료된 후 loadDashboardData가 useEffect에 의해 실행되거나 직접 호출
   };
-
-  // queryState가 바뀔 때만 데이터를 부름
-  useEffect(() => {
-    loadDashboardData();
-  }, [queryState]);
 
   const handleRowClick = (id: string, name: string) => {
     const max = viewMode === 'TYPE' ? 3 : 4;
@@ -288,7 +303,7 @@ const DashboardPage: React.FC = () => {
     else {
       setBreadcrumbs(breadcrumbs.slice(0, idx + 1));
       setCurrentLevel(idx + 1);
-      const newIds: any = {};
+      const newIds: Record<string, string> = {};
       if (viewMode === 'TYPE') {
           if (idx >= 0) newIds.categoryId = breadcrumbs[0].id;
           if (idx >= 1) newIds.staffId = breadcrumbs[1].id;
@@ -322,7 +337,7 @@ const DashboardPage: React.FC = () => {
     <div className={`${styles.page} fade-in`}>
       {notification && (
         <div className={`${styles.toast} ${styles[notification.type]}`}>
-          {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <Zap size={18} />
           <span>{notification.message}</span>
         </div>
       )}
@@ -363,14 +378,13 @@ const DashboardPage: React.FC = () => {
                 </select>
              </div>
              <button className={styles.searchBtn} onClick={handleSearchCommit} disabled={isLoading}>
-                {isLoading ? <Loader2 className={styles.spin} size={16}/> : <Search size={16}/>}
+                {isLoading ? <LoaderSVG className={styles.spin} size={16}/> : <Search size={16}/>}
                 <span>조회</span>
              </button>
            </div>
         </div>
       </header>
 
-      {/* Summary / Charts / Grid... (이후 로직 위와 동일) */}
       <div className={styles.summaryGrid}>
          <div className={styles.sumCard}>
             <div className={styles.cardInfo}><span className={styles.cardLabel}>현재 달성률</span><h3 className={styles.cardValue}>{summaryMetrics.achievement.toFixed(1)}%</h3><p className={styles.cardSub}>목표: {formatValue(summaryMetrics.totalGoal)} {getUnitName()}</p></div>
@@ -411,13 +425,13 @@ const DashboardPage: React.FC = () => {
 
       <div className={styles.gridSection}>
           <DrillDownTable breadcrumbs={breadcrumbs} onBreadcrumbClick={handleBreadcrumbClick} data={displayData} onRowClick={handleRowClick} columns={columns} isExpectedClosingOn={isExpectedClosingOn} />
-          {isLoading && <div className={styles.loaderArea}><Loader2 className={styles.spin} /> 데이터 분석 중...</div>}
+          {isLoading && <div className={styles.loaderArea}><LoaderSVG className={styles.spin} /> 데이터 분석 중...</div>}
       </div>
     </div>
   );
 };
 
-const Loader2: React.FC<any> = ({ className, size = 20 }) => (
+const LoaderSVG: React.FC<{ className?: string; size?: number }> = ({ className, size = 20 }) => (
   <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
 );
 

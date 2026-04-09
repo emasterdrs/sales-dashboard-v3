@@ -45,8 +45,9 @@ const LoginPage: React.FC = () => {
             }
 
             navigate('/');
-        } catch (err: any) {
-            setError(translateError(err.message));
+        } catch (err) {
+            const error = err as Error;
+            setError(translateError(error.message));
         } finally {
             setLoading(false);
         }
@@ -56,7 +57,7 @@ const LoginPage: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const options: any = { redirectTo: `${targetUrl}/auth/callback` };
+            const options: { redirectTo: string; scopes?: string } = { redirectTo: `${targetUrl}/auth/callback` };
             if (provider === 'azure') options.scopes = 'openid profile email offline_access';
 
             const { error } = await supabase.auth.signInWithOAuth({
@@ -64,7 +65,7 @@ const LoginPage: React.FC = () => {
                 options
             });
             if (error) throw error;
-        } catch (err: any) {
+        } catch (err) {
             setError('인증 요청 중 오류가 발생했습니다.');
             setLoading(false);
         }

@@ -1,18 +1,27 @@
 import { supabase } from '../api/supabase';
 
+interface SafeError {
+  message: string;
+  details?: string;
+  hint?: string;
+  stack?: string;
+}
+
 export class SecurityService {
   /**
    * Prevents revealing DB or file paths to end-users.
    * Logs only to server (or console for dev), showing safe message to user.
    */
-  static handleSafeError(error: any, userFriendlyMsg: string = '데이터를 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.') {
-    // 1. Log sensitive details to server-side only for audit
+  static handleSafeError(error: unknown, userFriendlyMsg: string = '데이터를 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.') {
+    const err = error as SafeError;
+    
+    // 1. Log sensitive details
     console.error('[SERVER_LOG][SECURE]:', {
       timestamp: new Date().toISOString(),
-      message: error.message,
-      stack: error.stack,
-      details: error.details,
-      hint: error.hint
+      message: err.message || 'Unknown error',
+      stack: err.stack,
+      details: err.details,
+      hint: err.hint
     });
 
     // 2. Alert user with non-sensitive message
@@ -43,9 +52,9 @@ export class SecurityService {
   }
 
   /**
-   * Sanitize inputs to prevent XSS and DB Injection (Supabase/Postgres internally handles DB injections).
+   * Sanitize inputs to prevent XSS.
    */
   static sanitizeInput(input: string): string {
-    return input.replace(/<[^>]*>?/gm, ''); // Simple XSS tag removal for demonstration
+    return input.replace(/<[^>]*>?/gm, ''); 
   }
 }

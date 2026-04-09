@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, FileText, AlertCircle, X, Loader2, Database, AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,6 +19,13 @@ interface Notification {
   type: 'success' | 'error';
 }
 
+interface OrgInfo {
+  divisions: Record<string, string>;
+  teamMap: Record<string, string>;
+  staffMap: Record<string, string>;
+  catMap: Record<string, string>;
+}
+
 const DataUploadPage: React.FC = () => {
   const { profile, fetchProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,42 +36,26 @@ const DataUploadPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [progress, setProgress] = useState(0);
-  const [orgMap, setOrgMap] = useState<any>({ divisions: {}, teamMap: {}, staffMap: {}, catMap: {} });
+  const [orgMap, setOrgMap] = useState<OrgInfo>({ divisions: {}, teamMap: {}, staffMap: {}, catMap: {} });
   const [resetConfirmation, setResetConfirmation] = useState('');
   const [notification, setNotification] = useState<Notification | null>(null);
 
-  useEffect(() => { 
-    fetchOrgInfo(); 
-    document.title = "VODA 영업 대시보드";
-  }, [profile?.company_id]);
-
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
-
-  const showNotify = (message: string, type: 'success' | 'error' = 'error') => {
-    setNotification({ message, type });
-  };
-
   const fetchAll = async (query: any) => {
-      let all: any[] = [];
+      const all: any[] = [];
       let from = 0;
       const step = 1000;
       while (true) {
           const { data, error } = await query.range(from, from + step - 1);
           if (error) throw error;
           if (!data || data.length === 0) break;
-          all = [...all, ...data];
+          all.push(...data);
           if (data.length < step) break;
           from += step;
       }
       return all;
   };
 
-  const fetchOrgInfo = async () => {
+  const fetchOrgInfo = useCallback(async () => {
     const cid = profile?.company_id;
     if (!cid) return;
     try {
@@ -73,15 +64,31 @@ const DataUploadPage: React.FC = () => {
         fetchAll(supabase.from('sales_teams').select('id, name, division_id').eq('company_id', cid)),
         fetchAll(supabase.from('product_categories').select('id, name').eq('company_id', cid))
       ]);
-      const stf = teams.length > 0 ? await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams.map((t:any) => t.id))) : [];
+      const stf = teams.length > 0 ? await fetchAll(supabase.from('sales_staff').select('id, name, team_id').in('team_id', teams.map((t: { id: string }) => t.id))) : [];
       
-      const dMap: any = {}; divs.forEach((d: any) => dMap[d.name.trim()] = d.id);
-      const tMap: any = {}; teams.forEach((t: any) => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
-      const sMap: any = {}; stf.forEach((s: any) => sMap[`${s.team_id}_${s.name.trim()}`] = s.id);
-      const cMap: any = {}; cats.forEach((c: any) => cMap[c.name.trim()] = c.id);
+      const dMap: Record<string, string> = {}; divs.forEach((d: { name: string; id: string }) => dMap[d.name.trim()] = d.id);
+      const tMap: Record<string, string> = {}; teams.forEach((t: { division_id: string; name: string; id: string }) => tMap[`${t.division_id}_${t.name.trim()}`] = t.id);
+      const sMap: Record<string, string> = {}; stf.forEach((s: { team_id: string; name: string; id: string }) => sMap[`${s.team_id}_${s.name.trim()}`] = s.id);
+      const cMap: Record<string, string> = {}; cats.forEach((c: { name: string; id: string }) => cMap[c.name.trim()] = c.id);
       setOrgMap({ divisions: dMap, teamMap: tMap, staffMap: sMap, catMap: cMap });
     } catch (e) { console.error('fetchOrgInfo Error:', e); }
-  };
+  }, [profile?.company_id]);
+
+  useEffect(() => { 
+    fetchOrgInfo(); 
+    document.title = "VODA 영업 대시보드";
+  }, [fetchOrgInfo]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotify = useCallback((message: string, type: 'success' | 'error' = 'error') => {
+    setNotification({ message, type });
+  }, []);
 
   const downloadTemplate = (type: 'empty' | 'sample') => {
     const headers = [['날짜', '사업부', '팀', '성명', '거래처코드', '거래처', '품목코드', '품목', '매출액', '카테고리']];
@@ -103,58 +110,19 @@ const DataUploadPage: React.FC = () => {
     return raw.findIndex(h => terms.some(t => h.includes(t) || t.includes(h)));
   };
 
-  const cleanAmount = (val: any) => {
+  const cleanAmount = (val: unknown) => {
     if (!val) return 0;
     const cleaned = String(val).replace(/[^0-9.-]+/g, "");
     return Math.abs(parseInt(cleaned)) || 0;
   };
 
-  const startUpload = async () => {
-    if (!profile?.company_id && fetchProfile) await fetchProfile();
-    const cid = profile?.company_id;
-    if (!file) return showNotify('업로드할 파일을 먼저 선택해 주세요.', 'error');
-    if (!cid) return showNotify('로그인 세션이 유효하지 않습니다.', 'error');
-
-    setIsUploading(true);
-    setUploadPhase('PARSING');
-    setResult(null);
-    setProgress(0);
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const worker = new Worker(new URL('../../workers/excelWorker.ts', import.meta.url), { type: 'module' });
-
-      let parsedHeaders: string[] = [];
-      let gatheredRows: any[][] = [];
-
-      worker.onmessage = async (e) => {
-        const { type, data } = e.data;
-        if (type === 'debug_rows') console.table(data);
-        if (type === 'headers') parsedHeaders = data;
-        if (type === 'chunk') gatheredRows.push(...data);
-        if (type === 'progress') setProgress(Math.floor(data * 0.4));
-        if (type === 'error') { worker.terminate(); showNotify(`${data}`, 'error'); resetUploadState(); }
-        if (type === 'success') {
-          worker.terminate();
-          setUploadPhase('SAVING');
-          await saveToDatabase(gatheredRows, parsedHeaders);
-        }
-      };
-      worker.postMessage({ arrayBuffer }, [arrayBuffer]);
-
-    } catch (e: any) {
-      showNotify(`시스템 오류: ${e.message}`, 'error');
-      resetUploadState();
-    }
-  };
-
-  const resetUploadState = () => {
+  const resetUploadState = useCallback(() => {
     setIsUploading(false);
     setUploadPhase('IDLE');
     setProgress(0);
-  };
+  }, []);
 
-  const saveToDatabase = async (rawRows: any[][], headers: string[]) => {
+  const saveToDatabase = useCallback(async (rawRows: unknown[][], headers: string[]) => {
     const cid = profile?.company_id;
     if (!cid) return;
 
@@ -221,11 +189,28 @@ const DataUploadPage: React.FC = () => {
         if (i % 200 === 0) setProgress(40 + Math.floor((i / rawRows.length) * 20));
       }
 
+      const aggregatedMap = new Map<string, any>();
+      for (const rec of recordsToUpsert) {
+        const key = `${rec.sales_date}_${rec.staff_id}_${rec.customer_name}_${rec.item_name}`;
+        if (aggregatedMap.has(key)) {
+          const existing = aggregatedMap.get(key);
+          existing.amount += rec.amount;
+        } else {
+          aggregatedMap.set(key, { ...rec });
+        }
+      }
+      const finalizedRecords = Array.from(aggregatedMap.values());
+
       const CHUNK = 1000;
-      for (let i = 0; i < recordsToUpsert.length; i += CHUNK) {
-        const { error: dbError } = await supabase.from('sales_records').upsert(recordsToUpsert.slice(i, i + CHUNK), { onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' });
+      for (let i = 0; i < finalizedRecords.length; i += CHUNK) {
+        const { error: dbError } = await supabase
+          .from('sales_records')
+          .upsert(finalizedRecords.slice(i, i + CHUNK), { 
+            onConflict: 'company_id, staff_id, customer_name, item_name, sales_date' 
+          });
+        
         if (dbError) throw new Error(`[DB 저장 실패] ${dbError.message}`);
-        setProgress(60 + Math.floor((i / recordsToUpsert.length) * 40));
+        setProgress(60 + Math.floor((i / finalizedRecords.length) * 40));
       }
 
       await supabase.rpc('refresh_sales_summary', { p_company_id: cid, p_year: new Date().getFullYear(), p_month: new Date().getMonth() + 1 });
@@ -233,10 +218,51 @@ const DataUploadPage: React.FC = () => {
       setProgress(100);
       showNotify('데이터 업로드가 안전하게 완료되었습니다.', 'success');
       setFile(null);
-      setResult({ total: rawRows.length, success: recordsToUpsert.length, failed: 0, merged: recordsToUpsert.length, errors: [] });
-    } catch (e: any) {
-      showNotify(`DB 저장 오류: ${e.message}`, 'error');
+      setResult({ total: rawRows.length, success: recordsToUpsert.length, failed: 0, merged: finalizedRecords.length, errors: [] });
+    } catch (e: unknown) {
+      const error = e as Error;
+      showNotify(`DB 저장 오류: ${error.message}`, 'error');
     } finally {
+      resetUploadState();
+    }
+  }, [profile?.company_id, orgMap, resetUploadState, showNotify]);
+
+  const startUpload = async () => {
+    if (!profile?.company_id && fetchProfile) await fetchProfile();
+    const cid = profile?.company_id;
+    if (!file) return showNotify('업로드할 파일을 먼저 선택해 주세요.', 'error');
+    if (!cid) return showNotify('로그인 세션이 유효하지 않습니다.', 'error');
+
+    setIsUploading(true);
+    setUploadPhase('PARSING');
+    setResult(null);
+    setProgress(0);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const worker = new Worker(new URL('../../workers/excelWorker.ts', import.meta.url), { type: 'module' });
+
+      let parsedHeaders: string[] = [];
+      const gatheredRows: unknown[][] = [];
+
+      worker.onmessage = async (e) => {
+        const { type, data } = e.data;
+        if (type === 'debug_rows') console.table(data);
+        if (type === 'headers') parsedHeaders = data;
+        if (type === 'chunk') gatheredRows.push(...data);
+        if (type === 'progress') setProgress(Math.floor(data * 0.4));
+        if (type === 'error') { worker.terminate(); showNotify(`${data}`, 'error'); resetUploadState(); }
+        if (type === 'success') {
+          worker.terminate();
+          setUploadPhase('SAVING');
+          await saveToDatabase(gatheredRows, parsedHeaders);
+        }
+      };
+      worker.postMessage({ arrayBuffer }, [arrayBuffer]);
+
+    } catch (e: unknown) {
+      const error = e as Error;
+      showNotify(`시스템 오류: ${error.message}`, 'error');
       resetUploadState();
     }
   };
@@ -254,7 +280,10 @@ const DataUploadPage: React.FC = () => {
       ]);
       showNotify('전체 실적 데이터가 리셋되었습니다.', 'success');
       setResetConfirmation('');
-    } catch (e: any) { showNotify(`리셋 오류: ${e.message}`, 'error'); } finally { setIsResetting(false); }
+    } catch (e: unknown) { 
+        const error = e as Error;
+        showNotify(`리셋 오류: ${error.message}`, 'error'); 
+    } finally { setIsResetting(false); }
   };
 
   return (

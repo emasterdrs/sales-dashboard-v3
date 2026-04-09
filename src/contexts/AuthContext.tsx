@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../api/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -20,7 +20,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   effectiveRole: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null;
   setSwitchedRole: (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => void;
-  fetchProfile: () => Promise<void>; // Added fetchProfile
+  fetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,36 +30,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [switchedRole, setSwitchedRole] = useState<'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null>(() => {
-    return localStorage.getItem('voda_switched_role') as any || null;
+    return (localStorage.getItem('voda_switched_role') as 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) || null;
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setIsLoading(false);
-    });
+  const signOut = async () => {
+    localStorage.removeItem('voda_switched_role');
+    await supabase.auth.signOut();
+  };
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else {
-        setProfile(null);
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchProfile = async (userId?: string) => {
+  const fetchProfileData = useCallback(async (userId?: string) => {
     const idToFetch = userId || user?.id;
-    if (!idToFetch) return;
+    if (!idToFetch) {
+      if (!userId) setIsLoading(false);
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -74,7 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // [CRITICAL FIX] Force link master account to demo company if missing
       if (finalProfile.email === 'emasterdrs@gmail.com' && !finalProfile.company_id) {
-        console.log('[AuthContext] Master account detected without company. Auto-linking...');
         const { data: demoComp } = await supabase
           .from('companies')
           .select('id')
@@ -83,7 +67,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (demoComp) {
           finalProfile.company_id = demoComp.id;
-          // Also silently update DB for persistence
           await supabase.from('profiles').update({ company_id: demoComp.id }).eq('id', idToFetch);
         }
       }
@@ -94,17 +77,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) fetchProfileData(currentUser.id);
+      else setIsLoading(false);
+    });
+
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) fetchProfileData(currentUser.id);
+      else {
+        setProfile(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchProfileData]);
 
   const handleSetSwitchedRole = (role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'USER' | null) => {
     setSwitchedRole(role);
     if (role) localStorage.setItem('voda_switched_role', role);
     else localStorage.removeItem('voda_switched_role');
-  };
-
-  const signOut = async () => {
-    localStorage.removeItem('voda_switched_role');
-    await supabase.auth.signOut();
   };
 
   const realRole = profile?.role;
@@ -117,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user) return;
 
-    let timeoutId: number;
+    let timeoutId: ReturnType<typeof setTimeout>;
     const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
     const resetTimer = () => {
@@ -128,16 +131,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }, TIMEOUT_MS);
     };
 
-    // Events to track user activity
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    events.forEach(event => document.addEventListener(event, resetTimer));
-    
-    // Initial timer
+    const handleInactivity = () => resetTimer();
+
+    events.forEach(event => document.addEventListener(event, handleInactivity));
     resetTimer();
 
     return () => {
       if (timeoutId) window.clearTimeout(timeoutId);
-      events.forEach(event => document.removeEventListener(event, resetTimer));
+      events.forEach(event => document.removeEventListener(event, handleInactivity));
     };
   }, [user]);
 
@@ -152,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin,
       effectiveRole: effectiveRole || null,
       setSwitchedRole: handleSetSwitchedRole,
-      fetchProfile: () => fetchProfile() // Exposed fetchProfile
+      fetchProfile: () => fetchProfileData()
     }}>
       {children}
     </AuthContext.Provider>

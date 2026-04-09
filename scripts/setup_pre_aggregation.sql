@@ -32,10 +32,10 @@ CREATE TABLE public.sales_summary (
 -- Unique constraint for upsert/lookup
 CREATE UNIQUE INDEX idx_sales_summary_unique ON public.sales_summary (
     company_id, year, month, 
-    COALESCE(division_id, '00000000-0000-0000-0000-000000000000'), 
-    COALESCE(team_id, '00000000-0000-0000-0000-000000000000'), 
-    COALESCE(staff_id, '00000000-0000-0000-0000-000000000000'), 
-    COALESCE(category_id, '00000000-0000-0000-0000-000000000000'), 
+    COALESCE(division_id, '00000000-0000-0000-0000-000000000000'::UUID), 
+    COALESCE(team_id, '00000000-0000-0000-0000-000000000000'::UUID), 
+    COALESCE(staff_id, '00000000-0000-0000-0000-000000000000'::UUID), 
+    COALESCE(category_id, '00000000-0000-0000-0000-000000000000'::UUID), 
     COALESCE(customer_name, ''), 
     COALESCE(item_name, '')
 );
@@ -96,7 +96,7 @@ BEGIN
     )
     SELECT 
         p_company_id, p_year, p_month, 
-        t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name,
+        t.division_id, r.team_id, r.staff_id, r.category_id::UUID, r.customer_name, r.item_name,
         SUM(r.amount)
     FROM sales_records r
     JOIN sales_teams t ON r.team_id = t.id
