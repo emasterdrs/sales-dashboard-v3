@@ -269,7 +269,7 @@ const ExcelAnalysisPage: React.FC = () => {
         <div className={styles.titleArea}>
           <FileSpreadsheet className={styles.titleIcon} strokeWidth={2.5} />
           <div>
-            <h1>간편 엑셀 실적 분석 <span className={styles.version}>v1.1</span></h1>
+            <h1>간편 엑셀 실적 분석 <span className={styles.version}>v1.2</span></h1>
             <p>서버에 저장하여 대시보드 통계에 즉시 반영하세요.</p>
           </div>
         </div>
