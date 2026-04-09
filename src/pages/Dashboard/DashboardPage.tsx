@@ -86,11 +86,11 @@ const DashboardPage: React.FC = () => {
     setNotification({ message, type });
   }, []);
 
-  const parseNum = (val: string | number | null | undefined): number => {
+  const parseNum = useCallback((val: string | number | null | undefined): number => {
     if (val === undefined || val === null) return 0;
     const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : Number(val);
     return isNaN(num) ? 0 : num;
-  };
+  }, []);
 
   const formatValue = useCallback((val: number) => {
     const num = Number(val);
@@ -105,12 +105,12 @@ const DashboardPage: React.FC = () => {
     return '원';
   };
 
-  const loadMetrics = useCallback((summary: SummaryRow | null) => {
+  const loadMetrics = useCallback((summary: SummaryRow | null, wdTotal: number, wdCurrent: number) => {
     const perf = parseNum(summary?.performance);
     const goal = parseNum(summary?.goal);
     const lyPerf = parseNum(summary?.ly_performance);
     const ytdPerf = parseNum(summary?.ytd_performance);
-    const progressLimit = workingDays.total > 0 ? (workingDays.current / workingDays.total) : 0;
+    const progressLimit = wdTotal > 0 ? (wdCurrent / wdTotal) : 0;
 
     setSummaryMetrics({
       achievement: goal > 0 ? (perf / goal) * 100 : 0,
@@ -122,7 +122,7 @@ const DashboardPage: React.FC = () => {
       totalPerf: perf,
       totalLyPerf: lyPerf
     });
-  }, [workingDays]);
+  }, [parseNum]);
 
   const refreshDrillDownData = useCallback(async () => {
     if (!profile?.company_id) return;
@@ -216,6 +216,14 @@ const DashboardPage: React.FC = () => {
         .is('division_id', null)
         .is('category_id', null);
 
+      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month);
+      const wd = wdList?.[0];
+      const holidaysObj = wd?.holidays || [];
+      const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
+      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(queryState.year, queryState.month, parsedHolidays);
+      const currentWD = SalesCalendarService.getElapsedWorkingDays(queryState.year, queryState.month, new Date(), parsedHolidays);
+      setWorkingDays({ total: totalWD, current: currentWD }); 
+
       if (summaryErr) throw summaryErr;
       
       const rows = summaryRows as SummaryRow[];
@@ -228,23 +236,13 @@ const DashboardPage: React.FC = () => {
         
         const { data: retryRows } = await supabase.from('sales_summary').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month).is('division_id', null).is('category_id', null).limit(1);
         if (retryRows && retryRows.length > 0) {
-          loadMetrics(retryRows[0] as SummaryRow);
+          loadMetrics(retryRows[0] as SummaryRow, totalWD, currentWD);
         } else {
-          // 데이터가 여전히 없으면 기본값(0) 로드
-          loadMetrics({ performance: 0, goal: 0, ly_performance: 0, prev_performance: 0, ytd_performance: 0, expected_performance: 0 } as SummaryRow);
+          loadMetrics({ performance: 0, goal: 0, ly_performance: 0, prev_performance: 0, ytd_performance: 0, expected_performance: 0 } as SummaryRow, totalWD, currentWD);
         }
       } else {
-        loadMetrics(rows[0]);
+        loadMetrics(rows[0], totalWD, currentWD);
       }
-
-      const { data: wdList } = await supabase.from('working_days_config').select('*').eq('company_id', profile.company_id).eq('year', queryState.year).eq('month', queryState.month);
-      const wd = wdList?.[0];
-      const holidaysObj = wd?.holidays || [];
-      const parsedHolidays = Array.isArray(holidaysObj) ? holidaysObj.map((h: string) => new Date(h)).filter(d => !isNaN(d.valueOf())) : [];
-      const totalWD = wd ? parseNum(wd.total_days) : SalesCalendarService.getTotalWorkingDays(queryState.year, queryState.month, parsedHolidays);
-      const currentWD = SalesCalendarService.getElapsedWorkingDays(queryState.year, queryState.month, new Date(), parsedHolidays);
-      setWorkingDays({ total: totalWD, current: currentWD }); 
-
       const { data: trendRowsResult } = await supabase
         .from('sales_summary')
         .select('month, performance')
@@ -350,7 +348,7 @@ const DashboardPage: React.FC = () => {
       <header className={styles.controlTower}>
         <div className={styles.leftGroup}>
            <div className={styles.mainTitleArea}>
-             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.5.0</span></h1>
+             <h1>Sales Intelligence <span className={styles.versionBadge}>v1.5.1</span></h1>
              <p>{queryState.year}년 {queryState.month}월 통합 분석 리포트</p>
            </div>
            <div className={styles.viewSwitcher}>
