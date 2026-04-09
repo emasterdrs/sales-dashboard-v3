@@ -96,10 +96,10 @@ BEGIN
     )
     SELECT 
         p_company_id, p_year, p_month, 
-        t.division_id, r.team_id, r.staff_id, r.category_id::UUID, r.customer_name, r.item_name,
+        t.division_id::UUID, r.team_id::UUID, r.staff_id::UUID, r.category_id::UUID, r.customer_name, r.item_name,
         SUM(r.amount)
-    FROM sales_records r
-    JOIN sales_teams t ON r.team_id = t.id
+    FROM public.sales_records r
+    JOIN public.sales_teams t ON r.team_id = t.id
     WHERE r.company_id = p_company_id AND r.sales_date BETWEEN v_start_date AND v_end_date
     GROUP BY t.division_id, r.team_id, r.staff_id, r.category_id, r.customer_name, r.item_name;
 
@@ -136,14 +136,14 @@ BEGIN
 
     -- Category Totals
     INSERT INTO public.sales_summary (company_id, year, month, category_id, performance)
-    SELECT p_company_id, p_year, p_month, category_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, category_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
     GROUP BY category_id;
 
     -- Staff per Category (for Type Mode Level 1)
     INSERT INTO public.sales_summary (company_id, year, month, staff_id, category_id, performance)
-    SELECT p_company_id, p_year, p_month, staff_id, category_id, SUM(performance)
+    SELECT p_company_id, p_year, p_month, staff_id::UUID, category_id::UUID, SUM(performance)
     FROM public.sales_summary 
     WHERE company_id = p_company_id AND year = p_year AND month = p_month AND customer_name IS NOT NULL
     GROUP BY staff_id, category_id;
